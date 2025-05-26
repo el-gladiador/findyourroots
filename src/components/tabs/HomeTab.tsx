@@ -1,4 +1,10 @@
-export default function HomeTab() {
+import AddPersonButton from '../AddPersonButton';
+
+interface HomeTabProps {
+  onNavigateToFamilyTree?: () => void;
+}
+
+export default function HomeTab({ onNavigateToFamilyTree }: HomeTabProps) {
   return (
     <div className="max-w-md mx-auto">
       {/* Header */}
@@ -17,14 +23,14 @@ export default function HomeTab() {
           <div className="text-3xl mb-2">🔍</div>
           <div className="font-medium text-blue-900 dark:text-blue-100">Quick Search</div>
         </button>
-        <button className="p-6 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-xl text-center hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors">
+        <button 
+          onClick={onNavigateToFamilyTree}
+          className="p-6 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-xl text-center hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors"
+        >
           <div className="text-3xl mb-2">🌳</div>
           <div className="font-medium text-green-900 dark:text-green-100">Family Tree</div>
         </button>
-        <button className="p-6 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-700 rounded-xl text-center hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-colors">
-          <div className="text-3xl mb-2">📸</div>
-          <div className="font-medium text-purple-900 dark:text-purple-100">Add Photos</div>
-        </button>
+        <AddPersonButton />
         <button className="p-6 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700 rounded-xl text-center hover:bg-orange-100 dark:hover:bg-orange-900/30 transition-colors">
           <div className="text-3xl mb-2">📄</div>
           <div className="font-medium text-orange-900 dark:text-orange-100">Documents</div>
