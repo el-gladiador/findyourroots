@@ -14,8 +14,9 @@ export default function LoginScreen() {
     setError('');
     try {
       await signInWithGoogle();
-    } catch (error: any) {
-      setError(error.message || 'Google sign-in failed');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Google sign-in failed';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -44,7 +45,7 @@ export default function LoginScreen() {
               Welcome to Family Tree
             </h2>
             <p className="text-gray-600 dark:text-gray-400 text-sm">
-              Choose how you'd like to continue
+              Choose how you&apos;d like to continue
             </p>
           </div>
 

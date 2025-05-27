@@ -13,7 +13,7 @@ interface EditPersonProps {
 
 export default function EditPerson({ person, isOpen, onClose }: EditPersonProps) {
   const { updatePerson, people } = useFamily();
-  const { authUser, isAdmin } = useAuth();
+  const { isAdmin } = useAuth();
   
   // Check if user can edit (admin only)
   const canEdit = isAdmin;

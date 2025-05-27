@@ -23,10 +23,19 @@ export default function TabContainer() {
     }
   };
 
+  // Handle sign in navigation - sign out guest to show login screen
+  const handleSignIn = async () => {
+    try {
+      await signOut();
+    } catch (error) {
+      console.error('Sign out error:', error);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-16">
-      {/* Top Bar with User Info */}
-      <div className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 px-4 py-3 flex items-center justify-between">
+      {/* Fixed Top Bar with User Info */}
+      <div className="fixed top-0 left-0 right-0 bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 px-4 py-3 flex items-center justify-between z-40">
         <div className="flex items-center space-x-3">
           <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-full flex items-center justify-center">
             <span className="text-white text-sm">🌳</span>
@@ -58,7 +67,7 @@ export default function TabContainer() {
           {/* Auth Buttons */}
           {authUser?.isGuest ? (
             <button
-              onClick={() => setActiveTab('profile')}
+              onClick={handleSignIn}
               className="flex items-center space-x-1 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors px-2 py-1 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 text-sm font-medium"
               title="Sign In"
             >
@@ -81,18 +90,20 @@ export default function TabContainer() {
         </div>
       </div>
 
-      {/* Tab Content */}
-      <div className={activeTab === 'home' ? 'block' : 'hidden'}>
-        <HomeTab />
-      </div>
-      <div className={activeTab === 'search' ? 'block p-4' : 'hidden'}>
-        <SearchTab />
-      </div>
-      <div className={activeTab === 'favorites' ? 'block p-4' : 'hidden'}>
-        <FavoritesTab />
-      </div>
-      <div className={activeTab === 'profile' ? 'block p-4' : 'hidden'}>
-        <ProfileTab onTabChange={setActiveTab} />
+      {/* Tab Content with top margin for fixed header */}
+      <div className="pt-16">
+        <div className={activeTab === 'home' ? 'block' : 'hidden'}>
+          <HomeTab />
+        </div>
+        <div className={activeTab === 'search' ? 'block p-4' : 'hidden'}>
+          <SearchTab />
+        </div>
+        <div className={activeTab === 'favorites' ? 'block p-4' : 'hidden'}>
+          <FavoritesTab />
+        </div>
+        <div className={activeTab === 'profile' ? 'block p-4' : 'hidden'}>
+          <ProfileTab onTabChange={setActiveTab} />
+        </div>
       </div>
       
       {/* Bottom Navigation */}
