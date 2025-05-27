@@ -7,9 +7,8 @@ import HomeTab from './tabs/HomeTab';
 import SearchTab from './tabs/SearchTab';
 import FavoritesTab from './tabs/FavoritesTab';
 import ProfileTab from './tabs/ProfileTab';
-import FamilyTreeTab from './tabs/FamilyTreeTab';
 
-export type TabType = 'home' | 'search' | 'favorites' | 'profile' | 'family-tree';
+export type TabType = 'home' | 'search' | 'favorites' | 'profile';
 
 export default function TabContainer() {
   const [activeTab, setActiveTab] = useState<TabType>('home');
@@ -22,16 +21,6 @@ export default function TabContainer() {
     } catch (error) {
       console.error('Sign out error:', error);
     }
-  };
-
-  // Handle navigation to family tree
-  const navigateToFamilyTree = () => {
-    setActiveTab('family-tree');
-  };
-
-  // Handle back navigation from family tree
-  const navigateBack = () => {
-    setActiveTab('home');
   };
 
   return (
@@ -53,9 +42,6 @@ export default function TabContainer() {
             {authUser?.isGuest ? (
               <div className="flex items-center space-x-2">
                 <span className="text-sm text-gray-600 dark:text-gray-400">👤 Guest</span>
-                <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-xs rounded-full text-gray-600 dark:text-gray-400">
-                  View Only
-                </span>
               </div>
             ) : (
               <div className="flex items-center space-x-2">
@@ -69,8 +55,19 @@ export default function TabContainer() {
             )}
           </div>
 
-          {/* Sign Out Button */}
-          {!authUser?.isGuest && (
+          {/* Auth Buttons */}
+          {authUser?.isGuest ? (
+            <button
+              onClick={() => setActiveTab('profile')}
+              className="flex items-center space-x-1 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors px-2 py-1 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 text-sm font-medium"
+              title="Sign In"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+              </svg>
+              <span>Sign In</span>
+            </button>
+          ) : (
             <button
               onClick={handleSignOut}
               className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -84,29 +81,22 @@ export default function TabContainer() {
         </div>
       </div>
 
-      <div className="p-4">
-        {/* All tabs are rendered but only the active one is visible */}
-        <div className={activeTab === 'home' ? 'block' : 'hidden'}>
-          <HomeTab onNavigateToFamilyTree={navigateToFamilyTree} />
-        </div>
-        <div className={activeTab === 'search' ? 'block' : 'hidden'}>
-          <SearchTab />
-        </div>
-        <div className={activeTab === 'favorites' ? 'block' : 'hidden'}>
-          <FavoritesTab />
-        </div>
-        <div className={activeTab === 'profile' ? 'block' : 'hidden'}>
-          <ProfileTab />
-        </div>
-        <div className={activeTab === 'family-tree' ? 'block' : 'hidden'}>
-          <FamilyTreeTab onBack={navigateBack} />
-        </div>
+      {/* Tab Content */}
+      <div className={activeTab === 'home' ? 'block' : 'hidden'}>
+        <HomeTab />
+      </div>
+      <div className={activeTab === 'search' ? 'block p-4' : 'hidden'}>
+        <SearchTab />
+      </div>
+      <div className={activeTab === 'favorites' ? 'block p-4' : 'hidden'}>
+        <FavoritesTab />
+      </div>
+      <div className={activeTab === 'profile' ? 'block p-4' : 'hidden'}>
+        <ProfileTab onTabChange={setActiveTab} />
       </div>
       
-      {/* Only show bottom navigation when not in family tree */}
-      {activeTab !== 'family-tree' && (
-        <BottomNavigation activeTab={activeTab} setActiveTab={setActiveTab} />
-      )}
+      {/* Bottom Navigation */}
+      <BottomNavigation activeTab={activeTab} setActiveTab={setActiveTab} />
     </div>
   );
 }
