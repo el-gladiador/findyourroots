@@ -15,19 +15,30 @@ export default function AddPerson({ onClose }: AddPersonProps) {
     fatherId: '',
   });
   const [showFatherSearch, setShowFatherSearch] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name.trim()) return;
 
-    addPerson({
-      name: formData.name.trim(),
-      fatherName: formData.fatherName.trim() || undefined,
-      fatherId: formData.fatherId || undefined,
-    });
+    setIsLoading(true);
+    setError(null);
 
-    setFormData({ name: '', fatherName: '', fatherId: '' });
-    onClose();
+    try {
+      await addPerson({
+        name: formData.name.trim(),
+        fatherName: formData.fatherName.trim() || undefined,
+        fatherId: formData.fatherId || undefined,
+      });
+
+      setFormData({ name: '', fatherName: '', fatherId: '' });
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to add person');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const selectFather = (person: { id: string; name: string }) => {
@@ -112,6 +123,12 @@ export default function AddPerson({ onClose }: AddPersonProps) {
             )}
           </div>
 
+          {error && (
+            <div className="text-red-600 dark:text-red-400 text-sm">
+              {error}
+            </div>
+          )}
+
           <div className="flex space-x-3 pt-4">
             <button
               type="button"
@@ -122,10 +139,10 @@ export default function AddPerson({ onClose }: AddPersonProps) {
             </button>
             <button
               type="submit"
-              disabled={!formData.name.trim()}
+              disabled={!formData.name.trim() || isLoading}
               className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              Add Person
+              {isLoading ? 'Adding...' : 'Add Person'}
             </button>
           </div>
         </form>

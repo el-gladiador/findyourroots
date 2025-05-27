@@ -2,66 +2,143 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Person, FamilyTreeData, FamilyNode } from '@/types/family';
+import { FirestoreService } from '@/lib/firestore';
 
 const FamilyContext = createContext<FamilyTreeData | undefined>(undefined);
 
 export function FamilyProvider({ children }: { children: ReactNode }) {
   const [people, setPeople] = useState<Person[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Load data from localStorage on mount
+  // Initialize Firestore listener on mount
   useEffect(() => {
-    const stored = localStorage.getItem('familyTreeData');
-    if (stored) {
+    let unsubscribe: (() => void) | null = null;
+
+    const initializeData = async () => {
       try {
+        setLoading(true);
+        setError(null);
+
+        // Set up real-time listener
+        unsubscribe = FirestoreService.subscribeToUpdates((updatedPeople) => {
+          setPeople(updatedPeople);
+          setLoading(false);
+        });
+
+      } catch (err) {
+        console.error('Failed to initialize family data:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load family data');
+        setLoading(false);
+        
+        // Fallback to localStorage for development
+        loadFromLocalStorage();
+      }
+    };
+
+    initializeData();
+
+    // Cleanup subscription on unmount
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
+  }, []);
+
+  // Fallback to localStorage for development/offline mode
+  const loadFromLocalStorage = () => {
+    try {
+      const stored = localStorage.getItem('familyTreeData');
+      if (stored) {
         const parsed = JSON.parse(stored);
         setPeople(parsed.map((p: any) => ({
           ...p,
           createdAt: new Date(p.createdAt)
         })));
-      } catch (error) {
-        console.error('Failed to load family data:', error);
       }
+      setLoading(false);
+    } catch (error) {
+      console.error('Failed to load family data from localStorage:', error);
+      setError('Failed to load family data');
+      setLoading(false);
     }
-  }, []);
+  };
 
-  // Save to localStorage whenever people changes
+  // Save to localStorage as backup
   useEffect(() => {
-    if (people.length > 0) {
+    if (people.length > 0 && !loading) {
       localStorage.setItem('familyTreeData', JSON.stringify(people));
     }
-  }, [people]);
+  }, [people, loading]);
 
-  const addPerson = (personData: Omit<Person, 'id' | 'createdAt'>) => {
-    const newPerson: Person = {
-      ...personData,
-      id: generateId(),
-      createdAt: new Date(),
-    };
-    
-    // If fatherName is provided but no fatherId, try to find the father by name
-    if (personData.fatherName && !personData.fatherId) {
-      const father = people.find(p => p.name.toLowerCase() === personData.fatherName?.toLowerCase());
-      if (father) {
-        newPerson.fatherId = father.id;
+  const addPerson = async (personData: Omit<Person, 'id' | 'createdAt'>) => {
+    try {
+      setError(null);
+      
+      const newPersonData = {
+        ...personData,
+        createdAt: new Date(),
+      };
+      
+      // If fatherName is provided but no fatherId, try to find the father by name
+      if (personData.fatherName && !personData.fatherId) {
+        const father = people.find(p => p.name.toLowerCase() === personData.fatherName?.toLowerCase());
+        if (father) {
+          newPersonData.fatherId = father.id;
+        }
       }
+      
+      await FirestoreService.addPerson(newPersonData);
+      // Real-time listener will update the state automatically
+      
+    } catch (err) {
+      console.error('Failed to add person:', err);
+      setError(err instanceof Error ? err.message : 'Failed to add person');
+      throw err;
     }
-    
-    setPeople(prev => [...prev, newPerson]);
   };
 
-  const removePerson = (id: string) => {
-    setPeople(prev => prev.filter(p => p.id !== id));
+  const removePerson = async (id: string) => {
+    try {
+      setError(null);
+      await FirestoreService.deletePerson(id);
+      // Real-time listener will update the state automatically
+      
+    } catch (err) {
+      console.error('Failed to remove person:', err);
+      setError(err instanceof Error ? err.message : 'Failed to remove person');
+      throw err;
+    }
   };
 
-  const updatePerson = (id: string, updates: Partial<Person>) => {
-    setPeople(prev => prev.map(p => 
-      p.id === id ? { ...p, ...updates } : p
-    ));
+  const updatePerson = async (id: string, updates: Partial<Person>) => {
+    try {
+      setError(null);
+      // Remove id from updates since Firestore doesn't store it as a field
+      const { id: _, ...updateData } = updates;
+      await FirestoreService.updatePerson(id, updateData);
+      // Real-time listener will update the state automatically
+      
+    } catch (err) {
+      console.error('Failed to update person:', err);
+      setError(err instanceof Error ? err.message : 'Failed to update person');
+      throw err;
+    }
   };
 
-  const clearTree = () => {
-    setPeople([]);
-    localStorage.removeItem('familyTreeData');
+  const clearTree = async () => {
+    try {
+      setError(null);
+      await FirestoreService.clearAllPeople();
+      localStorage.removeItem('familyTreeData');
+      // Real-time listener will update the state automatically
+      
+    } catch (err) {
+      console.error('Failed to clear tree:', err);
+      setError(err instanceof Error ? err.message : 'Failed to clear tree');
+      throw err;
+    }
   };
 
   const getPerson = (id: string) => {
@@ -91,6 +168,8 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
 
   const value: FamilyTreeData = {
     people,
+    loading,
+    error,
     addPerson,
     removePerson,
     updatePerson,
@@ -113,8 +192,4 @@ export function useFamily() {
     throw new Error('useFamily must be used within a FamilyProvider');
   }
   return context;
-}
-
-function generateId(): string {
-  return Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
 }

@@ -17,6 +17,8 @@ export default function EditPerson({ person, isOpen, onClose }: EditPersonProps)
   const [fatherId, setFatherId] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Reset form when person changes
   useEffect(() => {
@@ -33,34 +35,43 @@ export default function EditPerson({ person, isOpen, onClose }: EditPersonProps)
     p.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!name.trim()) return;
 
-    // Find father by name if provided
-    let finalFatherId = fatherId;
-    let finalFatherName = fatherName;
-    
-    if (fatherName && !fatherId) {
-      const father = people.find(p => p.name.toLowerCase() === fatherName.toLowerCase());
-      if (father) {
-        finalFatherId = father.id;
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // Find father by name if provided
+      let finalFatherId = fatherId;
+      let finalFatherName = fatherName;
+      
+      if (fatherName && !fatherId) {
+        const father = people.find(p => p.name.toLowerCase() === fatherName.toLowerCase());
+        if (father) {
+          finalFatherId = father.id;
+        }
+      } else if (fatherId) {
+        const father = people.find(p => p.id === fatherId);
+        if (father) {
+          finalFatherName = father.name;
+        }
       }
-    } else if (fatherId) {
-      const father = people.find(p => p.id === fatherId);
-      if (father) {
-        finalFatherName = father.name;
-      }
+
+      await updatePerson(person.id, {
+        name: name.trim(),
+        fatherName: finalFatherName || undefined,
+        fatherId: finalFatherId || undefined,
+      });
+
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update person');
+    } finally {
+      setIsLoading(false);
     }
-
-    updatePerson(person.id, {
-      name: name.trim(),
-      fatherName: finalFatherName || undefined,
-      fatherId: finalFatherId || undefined,
-    });
-
-    onClose();
   };
 
   const handleFatherSelect = (selectedPerson: Person) => {
@@ -165,6 +176,12 @@ export default function EditPerson({ person, isOpen, onClose }: EditPersonProps)
             )}
           </div>
 
+          {error && (
+            <div className="text-red-600 dark:text-red-400 text-sm">
+              {error}
+            </div>
+          )}
+
           <div className="flex space-x-3 pt-4">
             <button
               type="button"
@@ -175,9 +192,10 @@ export default function EditPerson({ person, isOpen, onClose }: EditPersonProps)
             </button>
             <button
               type="submit"
-              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+              disabled={!name.trim() || isLoading}
+              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
             >
-              Save Changes
+              {isLoading ? 'Saving...' : 'Save Changes'}
             </button>
           </div>
         </form>

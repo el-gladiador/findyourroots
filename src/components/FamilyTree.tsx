@@ -287,9 +287,14 @@ function TreeNode({ node, level, onEdit }: TreeNodeProps) {
   const hasChildren = children.length > 0;
   const [showActions, setShowActions] = useState(false);
 
-  const handleRemovePerson = (personToRemove: Person) => {
+  const handleRemovePerson = async (personToRemove: Person) => {
     if (window.confirm(`Are you sure you want to remove ${personToRemove.name} from the family tree?`)) {
-      removePerson(personToRemove.id);
+      try {
+        await removePerson(personToRemove.id);
+      } catch (error) {
+        console.error('Failed to remove person:', error);
+        alert('Failed to remove person. Please try again.');
+      }
     }
   };
 

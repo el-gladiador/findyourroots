@@ -8,10 +8,12 @@ export interface Person {
 
 export interface FamilyTreeData {
   people: Person[];
-  addPerson: (person: Omit<Person, 'id' | 'createdAt'>) => void;
-  removePerson: (id: string) => void;
-  updatePerson: (id: string, updates: Partial<Person>) => void;
-  clearTree: () => void;
+  loading: boolean;
+  error: string | null;
+  addPerson: (person: Omit<Person, 'id' | 'createdAt'>) => Promise<void>;
+  removePerson: (id: string) => Promise<void>;
+  updatePerson: (id: string, updates: Partial<Person>) => Promise<void>;
+  clearTree: () => Promise<void>;
   getPerson: (id: string) => Person | undefined;
   getChildren: (parentId: string) => Person[];
   getFamilyTree: () => FamilyNode[];

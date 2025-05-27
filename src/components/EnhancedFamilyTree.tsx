@@ -18,7 +18,7 @@ interface TreeNode {
 }
 
 export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
-  const { people, clearTree } = useFamily();
+  const { people, clearTree, loading, error } = useFamily();
   const [editingPerson, setEditingPerson] = useState<Person | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1);
@@ -308,6 +308,43 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
     );
   }
 
+  // Loading state
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400">Loading family tree...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center max-w-md mx-auto p-6">
+          <div className="text-red-500 mb-4">
+            <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.728-.833-2.498 0L4.316 15.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+            Failed to load family tree
+          </h3>
+          <p className="text-gray-600 dark:text-gray-400 mb-4">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="relative w-full h-full">
       {/* Controls - Mobile optimized */}
@@ -571,9 +608,14 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  clearTree();
-                  setShowClearConfirm(false);
+                onClick={async () => {
+                  try {
+                    await clearTree();
+                    setShowClearConfirm(false);
+                  } catch (err) {
+                    console.error('Failed to clear tree:', err);
+                    // You could add error handling here if needed
+                  }
                 }}
                 className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
               >
