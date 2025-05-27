@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import FamilyTree from '@/components/FamilyTree';
+import EnhancedFamilyTree from '@/components/EnhancedFamilyTree';
 import AddPerson from '@/components/AddPerson';
 
 interface FamilyTreeTabProps {
@@ -12,9 +12,9 @@ export default function FamilyTreeTab({ onBack }: FamilyTreeTabProps) {
   const [showAddPerson, setShowAddPerson] = useState(false);
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Header */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4">
+    <div className="h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
+      {/* Header - Compact */}
+      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3 flex-shrink-0">
         <div className="flex items-center">
           <button
             onClick={onBack}
@@ -28,9 +28,9 @@ export default function FamilyTreeTab({ onBack }: FamilyTreeTabProps) {
         </div>
       </div>
 
-      {/* Content */}
-      <div className="p-4">
-        <FamilyTree onAddPerson={() => setShowAddPerson(true)} />
+      {/* Content - Full Height */}
+      <div className="flex-1 overflow-hidden">
+        <EnhancedFamilyTree onAddPerson={() => setShowAddPerson(true)} />
       </div>
 
       {/* Add Person Modal */}
