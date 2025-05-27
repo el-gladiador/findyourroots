@@ -31,10 +31,31 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
   const svgRef = useRef<SVGSVGElement>(null);
 
   // Card dimensions - responsive
-  const CARD_WIDTH = window.innerWidth < 768 ? 240 : 280;
-  const CARD_HEIGHT = window.innerWidth < 768 ? 100 : 120;
-  const LEVEL_HEIGHT = window.innerWidth < 768 ? 160 : 200;
-  const SIBLING_SPACING = window.innerWidth < 768 ? 260 : 320;
+  const [dimensions, setDimensions] = useState({
+    CARD_WIDTH: 280,
+    CARD_HEIGHT: 120,
+    LEVEL_HEIGHT: 200,
+    SIBLING_SPACING: 320
+  });
+
+  // Update dimensions based on window size
+  useEffect(() => {
+    const updateDimensions = () => {
+      const isMobile = window.innerWidth < 768;
+      setDimensions({
+        CARD_WIDTH: isMobile ? 240 : 280,
+        CARD_HEIGHT: isMobile ? 100 : 120,
+        LEVEL_HEIGHT: isMobile ? 160 : 200,
+        SIBLING_SPACING: isMobile ? 260 : 320
+      });
+    };
+
+    updateDimensions();
+    window.addEventListener('resize', updateDimensions);
+    return () => window.removeEventListener('resize', updateDimensions);
+  }, []);
+
+  const { CARD_WIDTH, CARD_HEIGHT, LEVEL_HEIGHT, SIBLING_SPACING } = dimensions;
 
   // Build tree structure
   const buildTree = useCallback((): TreeNode[] => {
