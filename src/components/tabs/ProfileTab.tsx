@@ -94,9 +94,14 @@ export default function ProfileTab({ }: ProfileTabProps = {}) {
       <div className="mt-8 text-center">
         <p className="text-xs text-gray-500 dark:text-gray-600">
           Find Your Roots v1.0.0
+        </p>
+      </div>
+      <div className="mt-8 text-center">
+        <p className="text-xs text-gray-500 dark:text-gray-600">
           Created with ❤️ for our heritage preservation
         </p>
       </div>
     </div>
+    
   );
 }
