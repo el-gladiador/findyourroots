@@ -6,7 +6,7 @@ import { FamilyNode, Person } from '@/types/family';
 import EditPerson from './EditPerson';
 
 interface FamilyTreeProps {
-  onAddPerson: () => void;
+  onAddPerson: (parentId?: string) => void;
 }
 
 export default function FamilyTree({ onAddPerson }: FamilyTreeProps) {
@@ -108,7 +108,7 @@ export default function FamilyTree({ onAddPerson }: FamilyTreeProps) {
             Start building your family tree by adding people
           </p>
           <button
-            onClick={onAddPerson}
+            onClick={() => onAddPerson()}
             className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
           >
             Add First Person
@@ -179,7 +179,7 @@ export default function FamilyTree({ onAddPerson }: FamilyTreeProps) {
             )}
             
             <button
-              onClick={onAddPerson}
+              onClick={() => onAddPerson()}
               className="flex-1 sm:flex-none px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
             >
               <span className="sm:hidden">Add</span>
@@ -222,6 +222,7 @@ export default function FamilyTree({ onAddPerson }: FamilyTreeProps) {
                 node={root} 
                 level={0} 
                 onEdit={setEditingPerson}
+                onAddChild={onAddPerson}
               />
             </div>
           ))}
@@ -279,9 +280,10 @@ interface TreeNodeProps {
   node: FamilyNode;
   level: number;
   onEdit: (person: Person) => void;
+  onAddChild: (parentId: string) => void;
 }
 
-function TreeNode({ node, level, onEdit }: TreeNodeProps) {
+function TreeNode({ node, level, onEdit, onAddChild }: TreeNodeProps) {
   const { person, children } = node;
   const { removePerson } = useFamily();
   const hasChildren = children.length > 0;
@@ -323,6 +325,15 @@ function TreeNode({ node, level, onEdit }: TreeNodeProps) {
         {/* Action buttons */}
         {showActions && (
           <div className="absolute top-1 sm:top-2 right-1 sm:right-2 flex space-x-1">
+            <button
+              onClick={() => onAddChild(person.id)}
+              className="p-1 sm:p-1.5 bg-green-600 text-white rounded-full hover:bg-green-700 transition-colors shadow-lg"
+              title="Add child"
+            >
+              <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+            </button>
             <button
               onClick={() => onEdit(person)}
               className="p-1 sm:p-1.5 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-colors shadow-lg"
@@ -427,7 +438,7 @@ function TreeNode({ node, level, onEdit }: TreeNodeProps) {
           <div className="flex items-start justify-center space-x-11 sm:space-x-16">
             {children.map((child) => (
               <div key={child.person.id} className="flex flex-col items-center">
-                <TreeNode node={child} level={level + 1} onEdit={onEdit} />
+                <TreeNode node={child} level={level + 1} onEdit={onEdit} onAddChild={onAddChild} />
               </div>
             ))}
           </div>

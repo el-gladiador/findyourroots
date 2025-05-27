@@ -5,9 +5,12 @@ import { useFamily } from '@/contexts/FamilyContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Person } from '@/types/family';
 import EditPerson from './EditPerson';
+import ContextMenu from './ContextMenu';
+import { ExpandableFAB } from './ExpandableFAB';
+import { useLongPress } from '@/hooks/useLongPress';
 
 interface FamilyTreeProps {
-  onAddPerson?: () => void;
+  onAddPerson?: (parentId?: string) => void;
 }
 
 interface TreeNode {
@@ -18,8 +21,126 @@ interface TreeNode {
   y: number;
 }
 
+interface PersonCardProps {
+  node: TreeNode;
+  CARD_WIDTH: number;
+  CARD_HEIGHT: number;
+  onLongPress: (person: Person, event: React.MouseEvent | React.TouchEvent) => void;
+}
+
+function PersonCard({ node, CARD_WIDTH, CARD_HEIGHT, onLongPress }: PersonCardProps) {
+  const longPressProps = useLongPress({
+    onLongPress: (event) => onLongPress(node.person, event),
+    threshold: 500
+  });
+
+  return (
+    <g>
+      {/* Card Shadow */}
+      <rect
+        x={node.x - CARD_WIDTH / 2 + 2}
+        y={node.y + 2}
+        width={CARD_WIDTH}
+        height={CARD_HEIGHT}
+        rx="12"
+        fill="rgba(0, 0, 0, 0.1)"
+        className="transition-all duration-300"
+      />
+      
+      {/* Card Background with long press */}
+      <rect
+        x={node.x - CARD_WIDTH / 2}
+        y={node.y}
+        width={CARD_WIDTH}
+        height={CARD_HEIGHT}
+        rx="12"
+        fill="url(#cardGradient)"
+        stroke="rgb(229, 231, 235)"
+        strokeWidth="1"
+        className="hover:stroke-blue-400 hover:stroke-2 transition-all duration-300 cursor-pointer transform hover:scale-105"
+        style={{ transformOrigin: `${node.x}px ${node.y + CARD_HEIGHT/2}px` }}
+        {...longPressProps}
+      />
+      
+      {/* Profile Image Background */}
+      <circle
+        cx={node.x - CARD_WIDTH / 2 + 40}
+        cy={node.y + 40}
+        r="28"
+        fill="url(#profileGradient)"
+        className="cursor-pointer"
+        {...longPressProps}
+      />
+      
+      {/* Profile Image Circle */}
+      <circle
+        cx={node.x - CARD_WIDTH / 2 + 40}
+        cy={node.y + 40}
+        r="25"
+        fill="rgb(243, 244, 246)"
+        stroke="white"
+        strokeWidth="3"
+        className="cursor-pointer"
+        {...longPressProps}
+      />
+      
+      {/* Person Icon */}
+      <text
+        x={node.x - CARD_WIDTH / 2 + 40}
+        y={node.y + 47}
+        textAnchor="middle"
+        fontSize="20"
+        fill="rgb(59, 130, 246)"
+        className="cursor-pointer"
+        {...longPressProps}
+      >
+        👤
+      </text>
+
+      {/* Name */}
+      <text
+        x={node.x - CARD_WIDTH / 2 + 80}
+        y={node.y + 30}
+        fontSize="16"
+        fontWeight="600"
+        fill="rgb(17, 24, 39)"
+        className="cursor-pointer"
+        {...longPressProps}
+      >
+        {node.person.name}
+      </text>
+
+      {/* Father Name */}
+      {node.person.fatherName && (
+        <text
+          x={node.x - CARD_WIDTH / 2 + 80}
+          y={node.y + 50}
+          fontSize="14"
+          fill="rgb(107, 114, 128)"
+          className="cursor-pointer"
+          {...longPressProps}
+        >
+          Father: {node.person.fatherName}
+        </text>
+      )}
+
+      {/* Date Added */}
+      <text
+        x={node.x - CARD_WIDTH / 2 + 80}
+        y={node.y + 70}
+        fontSize="12"
+        fill="rgb(107, 114, 128)"
+        className="cursor-pointer"
+        {...longPressProps}
+      >
+        Added: {new Date(node.person.createdAt).toLocaleDateString()}
+      </text>
+    </g>
+  );
+}
+
 export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
-  const { people, clearTree, loading, error } = useFamily();
+  const { people, clearTree, loading, error, removePerson } = useFamily();
   const { authUser, isAdmin } = useAuth();
   const [editingPerson, setEditingPerson] = useState<Person | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
@@ -29,6 +150,10 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [lastTouchDistance, setLastTouchDistance] = useState(0);
   const [isTouching, setIsTouching] = useState(false);
+  const [contextMenu, setContextMenu] = useState<{
+    person: Person;
+    position: { x: number; y: number };
+  } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
 
@@ -83,6 +208,39 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
     return rootPeople.map(person => buildNodeTree(person));
   }, [people, LEVEL_HEIGHT]);
 
+  // Handle long press on person cards
+  const handleLongPress = useCallback((person: Person, event: React.MouseEvent | React.TouchEvent) => {
+    // Get the position for the context menu
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    // Calculate position relative to viewport
+    let clientX: number, clientY: number;
+    
+    if ('touches' in event && event.touches.length > 0) {
+      clientX = event.touches[0].clientX;
+      clientY = event.touches[0].clientY;
+    } else if ('clientX' in event) {
+      clientX = event.clientX;
+      clientY = event.clientY;
+    } else {
+      return;
+    }
+
+    setContextMenu({
+      person,
+      position: {
+        x: clientX,
+        y: clientY
+      }
+    });
+  }, []);
+
+  // Close context menu
+  const closeContextMenu = useCallback(() => {
+    setContextMenu(null);
+  }, []);
+
   // Calculate positions for tree nodes
   const calculatePositions = (nodes: TreeNode[]): TreeNode[] => {
     let currentX = 0;
@@ -133,8 +291,9 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
   const handleZoomIn = () => setZoomLevel(prev => Math.min(prev * 1.2, 3));
   const handleZoomOut = () => setZoomLevel(prev => Math.max(prev / 1.2, 0.3));
   const handleResetView = () => {
-    setZoomLevel(1);
-    setPanOffset({ x: 0, y: 0 });
+    const { zoom, panX, panY } = calculateOptimalView();
+    setZoomLevel(zoom);
+    setPanOffset({ x: panX, y: panY });
   };
 
   // Mouse/touch handlers for panning
@@ -280,41 +439,57 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
     return connections;
   };
 
-  // Calculate SVG dimensions and centering
-  const getSvgDimensions = () => {
-    if (allNodes.length === 0) return { width: 800, height: 600, centerX: 400, centerY: 300 };
+  // Calculate optimal zoom and position for all nodes
+  const calculateOptimalView = useCallback(() => {
+    if (allNodes.length === 0 || !containerRef.current) {
+      return { zoom: 1, panX: 0, panY: 0 };
+    }
 
+    const container = containerRef.current;
+    const containerWidth = container.clientWidth;
+    const containerHeight = container.clientHeight;
+
+    // Calculate bounds of all nodes in tree coordinate system
     const minX = Math.min(...allNodes.map(n => n.x)) - CARD_WIDTH / 2;
     const maxX = Math.max(...allNodes.map(n => n.x)) + CARD_WIDTH / 2;
     const minY = Math.min(...allNodes.map(n => n.y));
     const maxY = Math.max(...allNodes.map(n => n.y)) + CARD_HEIGHT;
 
-    const width = Math.max(maxX - minX + 400, 1200);
-    const height = Math.max(maxY - minY + 400, 800);
-    
-    // Calculate center point for initial view
-    const centerX = (minX + maxX) / 2;
-    const centerY = (minY + maxY) / 2;
+    const treeWidth = maxX - minX;
+    const treeHeight = maxY - minY;
 
-    return { width, height, centerX, centerY };
-  };
+    // Add padding (10% of viewport size)
+    const padding = Math.min(containerWidth, containerHeight) * 0.1;
+    const availableWidth = containerWidth - (padding * 2);
+    const availableHeight = containerHeight - (padding * 2);
 
-  const svgDims = getSvgDimensions();
+    // Calculate zoom to fit all nodes with padding
+    const scaleX = availableWidth / treeWidth;
+    const scaleY = availableHeight / treeHeight;
+    const newZoom = Math.min(Math.max(Math.min(scaleX, scaleY), 0.3), 3);
 
-  // Center the view on first load
+    // Calculate center point of the tree in tree coordinate system
+    const treeCenterX = (minX + maxX) / 2;
+    const treeCenterY = (minY + maxY) / 2;
+
+    // Calculate pan offset to center the tree in viewport
+    const newPanX = (containerWidth / 2) - (treeCenterX * newZoom);
+    const newPanY = (containerHeight / 2) - (treeCenterY * newZoom);
+
+    return { zoom: newZoom, panX: newPanX, panY: newPanY };
+  }, [allNodes, CARD_WIDTH, CARD_HEIGHT]);
+
+  // Initialize with optimal view on first load only
+  const [hasInitialized, setHasInitialized] = useState(false);
   useEffect(() => {
-    if (allNodes.length > 0 && containerRef.current) {
-      const container = containerRef.current;
-      const containerWidth = container.clientWidth;
-      const containerHeight = container.clientHeight;
-      
-      // Center the tree in the viewport
-      const initialPanX = (containerWidth / 2) - svgDims.centerX;
-      const initialPanY = (containerHeight / 2) - svgDims.centerY;
-      
-      setPanOffset({ x: initialPanX, y: initialPanY });
+    if (allNodes.length > 0 && containerRef.current && !hasInitialized) {
+      // Use the same logic as handleResetView for initial positioning
+      const { zoom, panX, panY } = calculateOptimalView();
+      setZoomLevel(zoom);
+      setPanOffset({ x: panX, y: panY });
+      setHasInitialized(true);
     }
-  }, [allNodes.length, svgDims.centerX, svgDims.centerY]);
+  }, [allNodes, calculateOptimalView, hasInitialized]);
 
   if (people.length === 0) {
     return (
@@ -329,7 +504,7 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
             You can add parents, children, and other relatives.
           </p>
           <button
-            onClick={onAddPerson}
+            onClick={() => onAddPerson && onAddPerson()}
             className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors"
           >
             Add First Person
@@ -380,10 +555,32 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
   const canEdit = isAdmin;
   const canAdd = !authUser?.isGuest; // Allow authenticated users to add, but only admin can edit/delete
 
+  // Context menu handlers
+  const handleContextMenuAction = {
+    addChild: (person: Person) => {
+      if (onAddPerson) {
+        onAddPerson(person.id);
+      }
+    },
+    update: (person: Person) => {
+      setEditingPerson(person);
+    },
+    remove: async (person: Person) => {
+      if (window.confirm(`Are you sure you want to remove ${person.name} from the family tree?`)) {
+        try {
+          await removePerson(person.id);
+        } catch (error) {
+          console.error('Failed to remove person:', error);
+          alert('Failed to remove person. Please try again.');
+        }
+      }
+    }
+  };
+
   return (
     <div className="relative w-full h-full">
-      {/* Controls - Mobile optimized */}
-      <div className="absolute top-2 left-2 sm:top-4 sm:left-4 z-10 flex flex-col gap-1 sm:gap-2">
+      {/* Controls - Fixed positioning with top bar padding */}
+      <div className="fixed top-18 left-2 sm:top-20 sm:left-4 z-30 flex flex-col gap-1 sm:gap-2">
         {/* Zoom Controls */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-1 sm:p-2">
           <div className="flex items-center gap-1 sm:gap-2">
@@ -401,7 +598,7 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
             </span>
             <button
               onClick={handleZoomIn}
-              className="p-2 sm:p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors touch-manipulation"
+              className="p-2 sm:p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
               title="Zoom In"
             >
               <svg className="w-4 h-4 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -417,37 +614,15 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
             </button>
           </div>
         </div>
-
-        {/* Action Controls */}
-        <div className="flex flex-col gap-1 sm:gap-2">
-          {canAdd && (
-            <button
-              onClick={onAddPerson}
-              className="px-3 py-2 sm:px-4 sm:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm sm:text-base touch-manipulation"
-            >
-              <span className="hidden sm:inline">Add Person</span>
-              <span className="sm:hidden">Add</span>
-            </button>
-          )}
-          {people.length > 0 && isAdmin && (
-            <button
-              onClick={() => setShowClearConfirm(true)}
-              className="px-3 py-2 sm:px-4 sm:py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium text-sm sm:text-base touch-manipulation"
-            >
-              <span className="hidden sm:inline">Clear Tree</span>
-              <span className="sm:hidden">Clear</span>
-            </button>
-          )}
-        </div>
       </div>
 
-      {/* Instructions - Mobile optimized */}
-      <div className="absolute top-2 right-2 sm:top-4 sm:right-4 z-10 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-2 sm:p-3 max-w-[200px] sm:max-w-xs">
+      {/* Instructions - Fixed positioning with top bar padding */}
+      <div className="fixed top-18 right-2 sm:top-20 sm:right-4 z-30 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-2 sm:p-3 max-w-[200px] sm:max-w-xs">
         <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
           <strong>Navigation:</strong><br />
           • <span className="hidden sm:inline">Drag to pan</span><span className="sm:hidden">Touch & drag</span><br />
           • <span className="hidden sm:inline">Ctrl+Scroll to zoom</span><span className="sm:hidden">Pinch to zoom</span><br />
-          • Tap card to edit
+          • Long press card for options
         </p>
       </div>
 
@@ -470,14 +645,10 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
       >
         <svg
           ref={svgRef}
-          width={svgDims.width}
-          height={svgDims.height}
-          style={{
-            transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomLevel})`,
-            transformOrigin: 'center center',
-            transition: isDragging ? 'none' : 'transform 0.3s ease',
-          }}
+          width="100%"
+          height="100%"
           className="overflow-visible"
+          style={{ display: 'block' }}
         >
           {/* SVG Definitions */}
           <defs>
@@ -494,138 +665,22 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
             </linearGradient>
           </defs>
 
-          {/* Connections */}
-          <g>{generateConnections()}</g>
+          {/* Transform group for all tree content */}
+          <g
+            style={{
+              transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomLevel})`,
+              transformOrigin: '0 0',
+              transition: isDragging ? 'none' : 'transform 0.3s ease',
+            }}
+          >
+            {/* Connections */}
+            <g>{generateConnections()}</g>
 
-          {/* Person Cards */}
-          {allNodes.map((node) => (
-            <g key={node.person.id}>
-              {/* Card Shadow */}
-              <rect
-                x={node.x - CARD_WIDTH / 2 + 2}
-                y={node.y + 2}
-                width={CARD_WIDTH}
-                height={CARD_HEIGHT}
-                rx="12"
-                fill="rgba(0, 0, 0, 0.1)"
-                className="transition-all duration-300"
-              />
-              
-              {/* Card Background */}
-              <rect
-                x={node.x - CARD_WIDTH / 2}
-                y={node.y}
-                width={CARD_WIDTH}
-                height={CARD_HEIGHT}
-                rx="12"
-                fill="url(#cardGradient)"
-                stroke="rgb(229, 231, 235)"
-                strokeWidth="1"
-                className="hover:stroke-blue-400 hover:stroke-2 transition-all duration-300 cursor-pointer transform hover:scale-105"
-                onClick={() => canEdit && setEditingPerson(node.person)}
-                style={{ transformOrigin: `${node.x}px ${node.y + CARD_HEIGHT/2}px` }}
-              />
-              
-              {/* Profile Image Background */}
-              <circle
-                cx={node.x - CARD_WIDTH / 2 + 40}
-                cy={node.y + 40}
-                r="28"
-                fill="url(#profileGradient)"
-                className="cursor-pointer"
-                onClick={() => canEdit && setEditingPerson(node.person)}
-              />
-              
-              {/* Profile Image Circle */}
-              <circle
-                cx={node.x - CARD_WIDTH / 2 + 40}
-                cy={node.y + 40}
-                r="25"
-                fill="rgb(243, 244, 246)"
-                stroke="white"
-                strokeWidth="3"
-                className="cursor-pointer"
-                onClick={() => canEdit && setEditingPerson(node.person)}
-              />
-              
-              {/* Person Icon */}
-              <text
-                x={node.x - CARD_WIDTH / 2 + 40}
-                y={node.y + 47}
-                textAnchor="middle"
-                fontSize="20"
-                fill="rgb(59, 130, 246)"
-                className="cursor-pointer"
-                onClick={() => canEdit && setEditingPerson(node.person)}
-              >
-                👤
-              </text>
-
-              {/* Name */}
-              <text
-                x={node.x - CARD_WIDTH / 2 + 80}
-                y={node.y + 30}
-                fontSize="16"
-                fontWeight="600"
-                fill="rgb(17, 24, 39)"
-                className="cursor-pointer"
-                onClick={() => canEdit && setEditingPerson(node.person)}
-              >
-                {node.person.name}
-              </text>
-
-              {/* Father Name */}
-              {node.person.fatherName && (
-                <text
-                  x={node.x - CARD_WIDTH / 2 + 80}
-                  y={node.y + 50}
-                  fontSize="14"
-                  fill="rgb(107, 114, 128)"
-                  className="cursor-pointer"
-                  onClick={() => canEdit && setEditingPerson(node.person)}
-                >
-                  Father: {node.person.fatherName}
-                </text>
-              )}
-
-              {/* Date Added */}
-              <text
-                x={node.x - CARD_WIDTH / 2 + 80}
-                y={node.y + 70}
-                fontSize="12"
-                fill="rgb(107, 114, 128)"
-                className="cursor-pointer"
-                onClick={() => canEdit && setEditingPerson(node.person)}
-              >
-                Added: {new Date(node.person.createdAt).toLocaleDateString()}
-              </text>
-
-              {/* Hover Edit Button */}
-              {canEdit && (
-                <g className="opacity-0 hover:opacity-100 transition-opacity duration-200">
-                  <circle
-                    cx={node.x + CARD_WIDTH / 2 - 25}
-                    cy={node.y + 25}
-                    r="15"
-                    fill="rgb(59, 130, 246)"
-                    className="cursor-pointer drop-shadow-md"
-                    onClick={() => setEditingPerson(node.person)}
-                  />
-                  <text
-                    x={node.x + CARD_WIDTH / 2 - 25}
-                    y={node.y + 29}
-                    textAnchor="middle"
-                    fontSize="10"
-                    fill="white"
-                    className="cursor-pointer"
-                    onClick={() => setEditingPerson(node.person)}
-                  >
-                    ✏️
-                  </text>
-                </g>
-              )}
-            </g>
-          ))}
+            {/* Person Cards */}
+            {allNodes.map((node) => (
+              <PersonCard key={node.person.id} node={node} CARD_WIDTH={CARD_WIDTH} CARD_HEIGHT={CARD_HEIGHT} onLongPress={handleLongPress} />
+            ))}
+          </g>
         </svg>
       </div>
 
@@ -673,6 +728,30 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
           onClose={() => setEditingPerson(null)}
         />
       )}
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <ContextMenu
+          person={contextMenu.person}
+          position={contextMenu.position}
+          onAddChild={() => handleContextMenuAction.addChild(contextMenu.person)}
+          onUpdate={() => handleContextMenuAction.update(contextMenu.person)}
+          onRemove={() => handleContextMenuAction.remove(contextMenu.person)}
+          onClose={closeContextMenu}
+          canEdit={canEdit}
+          canAdd={canAdd}
+          isAdmin={isAdmin}
+        />
+      )}
+
+      {/* Expandable FAB */}
+      <ExpandableFAB
+        onAddPerson={() => onAddPerson && onAddPerson()}
+        onClearTree={() => setShowClearConfirm(true)}
+        canAdd={canAdd}
+        isAdmin={isAdmin}
+        showClear={people.length > 0}
+      />
     </div>
   );
 }

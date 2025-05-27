@@ -6,10 +6,11 @@ import { useAuth } from '@/contexts/AuthContext';
 
 interface AddPersonProps {
   onClose: () => void;
+  parentId?: string;
 }
 
-export default function AddPerson({ onClose }: AddPersonProps) {
-  const { addPerson, people } = useFamily();
+export default function AddPerson({ onClose, parentId }: AddPersonProps) {
+  const { addPerson, getPerson, people } = useFamily();
   const { authUser } = useAuth();
   
   // Check if user can add people (not guest)
@@ -18,11 +19,12 @@ export default function AddPerson({ onClose }: AddPersonProps) {
   const [formData, setFormData] = useState({
     name: '',
     fatherName: '',
-    fatherId: '',
   });
-  const [showFatherSearch, setShowFatherSearch] = useState(false);
-    const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Get parent information if parentId is provided
+  const parentPerson = parentId ? getPerson(parentId) : null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,13 +34,35 @@ export default function AddPerson({ onClose }: AddPersonProps) {
     setError(null);
 
     try {
-      await addPerson({
+      const personData: {
+        name: string;
+        fatherId?: string;
+        fatherName?: string;
+      } = {
         name: formData.name.trim(),
-        fatherName: formData.fatherName.trim() || undefined,
-        fatherId: formData.fatherId || undefined,
-      });
+      };
 
-      setFormData({ name: '', fatherName: '', fatherId: '' });
+      // If parentId is provided (from "Add Child" button), use it automatically
+      if (parentId && parentPerson) {
+        personData.fatherId = parentId;
+        personData.fatherName = parentPerson.name;
+      } 
+      // Otherwise, if user manually entered a father name, try to find that person
+      else if (formData.fatherName.trim()) {
+        const father = people.find(p => 
+          p.name.toLowerCase() === formData.fatherName.trim().toLowerCase()
+        );
+        if (father) {
+          personData.fatherId = father.id;
+          personData.fatherName = father.name;
+        } else {
+          personData.fatherName = formData.fatherName.trim();
+        }
+      }
+
+      await addPerson(personData);
+
+      setFormData({ name: '', fatherName: '' });
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add person');
@@ -47,24 +71,21 @@ export default function AddPerson({ onClose }: AddPersonProps) {
     }
   };
 
-  const selectFather = (person: { id: string; name: string }) => {
-    setFormData(prev => ({
-      ...prev,
-      fatherId: person.id,
-      fatherName: person.name,
-    }));
-    setShowFatherSearch(false);
-  };
-
-  const filteredFathers = people.filter(person =>
-    person.name.toLowerCase().includes(formData.fatherName.toLowerCase())
-  );
-
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-md p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white">Add Person</h2>
+    <div 
+      className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50 backdrop-blur-sm transition-all duration-300"
+      onClick={(e) => {
+        // Close modal when clicking on backdrop
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+    >
+      <div className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-md p-6 shadow-2xl border border-gray-200 dark:border-gray-700 transform transition-all duration-300 scale-100 opacity-100 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-bold text-gray-900 dark:text-white">
+            {parentPerson ? `Add Child to ${parentPerson.name}` : 'Add Person'}
+          </h2>
           <button
             onClick={onClose}
             className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
@@ -76,19 +97,32 @@ export default function AddPerson({ onClose }: AddPersonProps) {
         </div>
 
         {!canAdd && (
-          <div className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+          <div className="mb-3 p-2 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
             <div className="flex items-center">
-              <svg className="w-5 h-5 text-yellow-600 dark:text-yellow-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 text-yellow-600 dark:text-yellow-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.728-.833-2.498 0L4.316 15.5c-.77.833.192 2.5 1.732 2.5z" />
               </svg>
-              <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                Guest users cannot add people to the family tree. Please sign in to add family members.
+              <p className="text-xs text-yellow-800 dark:text-yellow-200">
+                Guest users cannot add people. Please sign in.
               </p>
             </div>
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        {parentPerson && (
+          <div className="mb-3 p-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+            <div className="flex items-center">
+              <svg className="w-4 h-4 text-blue-600 dark:text-blue-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+              <p className="text-xs text-blue-800 dark:text-blue-200">
+                Adding child to: <strong>{parentPerson.name}</strong>
+              </p>
+            </div>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-3">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Name *
@@ -101,47 +135,22 @@ export default function AddPerson({ onClose }: AddPersonProps) {
               placeholder="Enter person's name"
               required
               disabled={!canAdd}
+              autoFocus
             />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Father&apos;s Name (Optional)
+              Father Name {parentPerson ? '(Auto-filled)' : '(Optional)'}
             </label>
-            <div className="relative">
-              <input
-                type="text"
-                value={formData.fatherName}
-                onChange={(e) => {
-                  setFormData(prev => ({ ...prev, fatherName: e.target.value, fatherId: '' }));
-                  setShowFatherSearch(e.target.value.length > 0);
-                }}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                placeholder="Enter father's name"
-                disabled={!canAdd}
-              />
-              
-              {showFatherSearch && filteredFathers.length > 0 && canAdd && (
-                <div className="absolute top-full left-0 right-0 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md mt-1 max-h-32 overflow-y-auto z-10">
-                  {filteredFathers.slice(0, 5).map((person) => (
-                    <button
-                      key={person.id}
-                      type="button"
-                      onClick={() => selectFather(person)}
-                      className="w-full px-3 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-900 dark:text-white"
-                    >
-                      {person.name}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-            
-            {formData.fatherId && (
-              <div className="mt-1 text-sm text-green-600 dark:text-green-400">
-                ✓ Father selected from existing people
-              </div>
-            )}
+            <input
+              type="text"
+              value={parentPerson ? parentPerson.name : formData.fatherName}
+              onChange={(e) => setFormData(prev => ({ ...prev, fatherName: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:bg-gray-100 dark:disabled:bg-gray-600"
+              placeholder="Enter father's name"
+              disabled={!canAdd || !!parentPerson}
+            />
           </div>
 
           {error && (
@@ -150,7 +159,7 @@ export default function AddPerson({ onClose }: AddPersonProps) {
             </div>
           )}
 
-          <div className="flex space-x-3 pt-4">
+          <div className="flex space-x-3 pt-3">
             <button
               type="button"
               onClick={onClose}
@@ -163,7 +172,7 @@ export default function AddPerson({ onClose }: AddPersonProps) {
               disabled={!formData.name.trim() || isLoading || !canAdd}
               className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              {isLoading ? 'Adding...' : 'Add Person'}
+              {isLoading ? 'Adding...' : (parentPerson ? 'Add Child' : 'Add Person')}
             </button>
           </div>
         </form>

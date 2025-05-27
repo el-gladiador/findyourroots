@@ -53,10 +53,10 @@ export default function TabContainer() {
                 <span className="text-sm text-gray-600 dark:text-gray-400">👤 Guest</span>
               </div>
             ) : (
-              <div className="flex items-center space-x-2">
-                <span className="text-sm text-gray-900 dark:text-white">{authUser?.name}</span>
+              <div className="flex items-center space-x-2 min-w-0">
+                <span className="text-sm text-gray-900 dark:text-white truncate max-w-24">{authUser?.name}</span>
                 {isAdmin && (
-                  <span className="px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-xs rounded-full text-purple-800 dark:text-purple-300 font-medium">
+                  <span className="px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-xs rounded-full text-purple-800 dark:text-purple-300 font-medium flex-shrink-0">
                     Admin
                   </span>
                 )}
