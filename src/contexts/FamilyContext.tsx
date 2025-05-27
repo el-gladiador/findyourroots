@@ -52,7 +52,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       const stored = localStorage.getItem('familyTreeData');
       if (stored) {
         const parsed = JSON.parse(stored);
-        setPeople(parsed.map((p: any) => ({
+        setPeople(parsed.map((p: Partial<Person> & { createdAt: string }) => ({
           ...p,
           createdAt: new Date(p.createdAt)
         })));
@@ -116,7 +116,8 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     try {
       setError(null);
       // Remove id from updates since Firestore doesn't store it as a field
-      const { id: _, ...updateData } = updates;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { id: _id, ...updateData } = updates;
       await FirestoreService.updatePerson(id, updateData);
       // Real-time listener will update the state automatically
       

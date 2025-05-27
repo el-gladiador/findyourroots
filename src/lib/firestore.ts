@@ -8,7 +8,8 @@ import {
   query, 
   orderBy,
   onSnapshot,
-  Timestamp 
+  Timestamp,
+  DocumentSnapshot
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { Person } from '@/types/family';
@@ -17,16 +18,16 @@ import { Person } from '@/types/family';
 const COLLECTION_NAME = 'people';
 
 // Convert Firestore timestamp to Date
-const convertTimestamp = (timestamp: any): Date => {
-  if (timestamp?.toDate) {
-    return timestamp.toDate();
+const convertTimestamp = (timestamp: unknown): Date => {
+  if (timestamp && typeof timestamp === 'object' && 'toDate' in timestamp && typeof (timestamp as { toDate: () => Date }).toDate === 'function') {
+    return (timestamp as { toDate: () => Date }).toDate();
   }
-  return new Date(timestamp);
+  return new Date(timestamp as string | number | Date);
 };
 
 // Convert Person data for Firestore (dates to timestamps)
 const convertPersonForFirestore = (person: Omit<Person, 'id'>) => {
-  const firestoreData: any = {
+  const firestoreData: Record<string, unknown> = {
     name: person.name,
     createdAt: Timestamp.fromDate(person.createdAt),
   };
@@ -43,8 +44,11 @@ const convertPersonForFirestore = (person: Omit<Person, 'id'>) => {
 };
 
 // Convert Firestore document to Person
-const convertDocToPerson = (doc: any): Person => {
+const convertDocToPerson = (doc: DocumentSnapshot): Person => {
   const data = doc.data();
+  if (!data) {
+    throw new Error('Document data is undefined');
+  }
   return {
     id: doc.id,
     name: data.name,
@@ -85,10 +89,12 @@ export class FirestoreService {
   static async updatePerson(id: string, updates: Partial<Omit<Person, 'id'>>): Promise<void> {
     try {
       const docRef = doc(db, COLLECTION_NAME, id);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const updateData: any = {};
       
       // Only include fields that are not undefined
       Object.keys(updates).forEach(key => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const value = (updates as any)[key];
         if (value !== undefined) {
           if (key === 'createdAt' && value instanceof Date) {

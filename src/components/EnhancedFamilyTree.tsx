@@ -79,7 +79,7 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
     };
 
     return rootPeople.map(person => buildNodeTree(person));
-  }, [people]);
+  }, [people, LEVEL_HEIGHT]);
 
   // Calculate positions for tree nodes
   const calculatePositions = (nodes: TreeNode[]): TreeNode[] => {
@@ -137,6 +137,9 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
 
   // Mouse/touch handlers for panning
   const handleMouseDown = (e: React.MouseEvent) => {
+    // Don't handle mouse events if currently touching (prevents conflicts on touch devices)
+    if (isTouching) return;
+    
     if (e.button === 0) { // Left click only
       setIsDragging(true);
       setDragStart({ x: e.clientX - panOffset.x, y: e.clientY - panOffset.y });
@@ -144,6 +147,9 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
+    // Don't handle mouse events if currently touching
+    if (isTouching) return;
+    
     if (isDragging) {
       setPanOffset({
         x: e.clientX - dragStart.x,
@@ -153,6 +159,9 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
   };
 
   const handleMouseUp = () => {
+    // Don't handle mouse events if currently touching
+    if (isTouching) return;
+    
     setIsDragging(false);
   };
 
@@ -160,10 +169,10 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
   const handleTouchStart = (e: React.TouchEvent) => {
     e.preventDefault();
     const touches = e.touches;
+    setIsTouching(true);
     
     if (touches.length === 1) {
       // Single touch - pan
-      setIsTouching(true);
       setIsDragging(true);
       setDragStart({ 
         x: touches[0].clientX - panOffset.x, 
@@ -234,7 +243,6 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
         const endX = child.x;
         const endY = child.y;
 
-        const midY = startY + (endY - startY) / 2;
         const controlPoint1Y = startY + 30;
         const controlPoint2Y = endY - 30;
 

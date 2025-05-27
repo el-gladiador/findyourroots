@@ -37,7 +37,7 @@ export default function SearchTab() {
         {searchQuery && (
           <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg">
             <p className="text-sm text-green-800 dark:text-green-200">
-              Your search: "{searchQuery}" - This also persists across tabs!
+              Your search: &quot;{searchQuery}&quot; - This also persists across tabs!
             </p>
           </div>
         )}
