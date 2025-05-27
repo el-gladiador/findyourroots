@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useFamily } from '@/contexts/FamilyContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { Person } from '@/types/family';
 
 interface EditPersonProps {
@@ -12,6 +13,11 @@ interface EditPersonProps {
 
 export default function EditPerson({ person, isOpen, onClose }: EditPersonProps) {
   const { updatePerson, people } = useFamily();
+  const { authUser, isAdmin } = useAuth();
+  
+  // Check if user can edit (admin only)
+  const canEdit = isAdmin;
+  
   const [name, setName] = useState('');
   const [fatherName, setFatherName] = useState('');
   const [fatherId, setFatherId] = useState('');
@@ -38,7 +44,7 @@ export default function EditPerson({ person, isOpen, onClose }: EditPersonProps)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!name.trim()) return;
+    if (!name.trim() || !canEdit) return;
 
     setIsLoading(true);
     setError(null);
@@ -106,6 +112,19 @@ export default function EditPerson({ person, isOpen, onClose }: EditPersonProps)
           </button>
         </div>
 
+        {!canEdit && (
+          <div className="mx-4 sm:mx-6 mt-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+            <div className="flex items-center">
+              <svg className="w-5 h-5 text-yellow-600 dark:text-yellow-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.728-.833-2.498 0L4.316 15.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+              <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                Only admin users can edit family tree members. Please sign in with an admin account to make changes.
+              </p>
+            </div>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4">
           <div>
             <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -119,6 +138,7 @@ export default function EditPerson({ person, isOpen, onClose }: EditPersonProps)
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
               placeholder="Enter person's name"
               required
+              disabled={!canEdit}
               autoFocus
             />
           </div>
@@ -141,6 +161,7 @@ export default function EditPerson({ person, isOpen, onClose }: EditPersonProps)
                 onFocus={() => setShowSuggestions(true)}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white pr-10"
                 placeholder="Search for or enter father's name"
+                disabled={!canEdit}
               />
               {(fatherName || searchTerm) && (
                 <button
@@ -155,7 +176,7 @@ export default function EditPerson({ person, isOpen, onClose }: EditPersonProps)
               )}
             </div>
 
-            {showSuggestions && searchTerm && availableFathers.length > 0 && (
+            {showSuggestions && searchTerm && availableFathers.length > 0 && canEdit && (
               <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-40 overflow-y-auto">
                 {availableFathers.slice(0, 5).map((father) => (
                   <button
@@ -192,7 +213,7 @@ export default function EditPerson({ person, isOpen, onClose }: EditPersonProps)
             </button>
             <button
               type="submit"
-              disabled={!name.trim() || isLoading}
+              disabled={!name.trim() || isLoading || !canEdit}
               className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
             >
               {isLoading ? 'Saving...' : 'Save Changes'}

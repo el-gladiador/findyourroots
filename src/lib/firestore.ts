@@ -11,7 +11,7 @@ import {
   Timestamp,
   DocumentSnapshot
 } from 'firebase/firestore';
-import { db } from './firebase';
+import { db, auth } from './firebase';
 import { Person } from '@/types/family';
 
 // Collection name
@@ -74,6 +74,12 @@ export class FirestoreService {
   // Add a new person
   static async addPerson(personData: Omit<Person, 'id'>): Promise<string> {
     try {
+      // Verify user is authenticated with Firebase (not just a guest user)
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        throw new Error('You must be signed in with Google to add a person. Guest users cannot modify data.');
+      }
+
       const docRef = await addDoc(
         collection(db, COLLECTION_NAME), 
         convertPersonForFirestore(personData)
@@ -81,13 +87,19 @@ export class FirestoreService {
       return docRef.id;
     } catch (error) {
       console.error('Error adding person:', error);
-      throw new Error('Failed to add person to database');
+      throw error; // Pass original error for better debugging
     }
   }
 
   // Update a person
   static async updatePerson(id: string, updates: Partial<Omit<Person, 'id'>>): Promise<void> {
     try {
+      // Verify user is authenticated (admin check happens in security rules)
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        throw new Error('User must be authenticated to update a person');
+      }
+
       const docRef = doc(db, COLLECTION_NAME, id);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const updateData: any = {};
@@ -115,11 +127,17 @@ export class FirestoreService {
   // Delete a person
   static async deletePerson(id: string): Promise<void> {
     try {
+      // Verify user is authenticated (admin check happens in security rules)
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        throw new Error('User must be authenticated to delete a person');
+      }
+      
       const docRef = doc(db, COLLECTION_NAME, id);
       await deleteDoc(docRef);
     } catch (error) {
       console.error('Error deleting person:', error);
-      throw new Error('Failed to delete person from database');
+      throw error; // Pass original error for better debugging
     }
   }
 

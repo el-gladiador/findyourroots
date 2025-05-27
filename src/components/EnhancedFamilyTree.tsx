@@ -2,11 +2,12 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useFamily } from '@/contexts/FamilyContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { Person } from '@/types/family';
 import EditPerson from './EditPerson';
 
 interface FamilyTreeProps {
-  onAddPerson: () => void;
+  onAddPerson?: () => void;
 }
 
 interface TreeNode {
@@ -19,6 +20,7 @@ interface TreeNode {
 
 export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
   const { people, clearTree, loading, error } = useFamily();
+  const { authUser, isAdmin } = useAuth();
   const [editingPerson, setEditingPerson] = useState<Person | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1);
@@ -374,6 +376,10 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
     );
   }
 
+  // Only allow edits for admin users
+  const canEdit = isAdmin;
+  const canAdd = !authUser?.isGuest; // Allow authenticated users to add, but only admin can edit/delete
+
   return (
     <div className="relative w-full h-full">
       {/* Controls - Mobile optimized */}
@@ -414,14 +420,16 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
 
         {/* Action Controls */}
         <div className="flex flex-col gap-1 sm:gap-2">
-          <button
-            onClick={onAddPerson}
-            className="px-3 py-2 sm:px-4 sm:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm sm:text-base touch-manipulation"
-          >
-            <span className="hidden sm:inline">Add Person</span>
-            <span className="sm:hidden">Add</span>
-          </button>
-          {people.length > 0 && (
+          {canAdd && (
+            <button
+              onClick={onAddPerson}
+              className="px-3 py-2 sm:px-4 sm:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm sm:text-base touch-manipulation"
+            >
+              <span className="hidden sm:inline">Add Person</span>
+              <span className="sm:hidden">Add</span>
+            </button>
+          )}
+          {people.length > 0 && isAdmin && (
             <button
               onClick={() => setShowClearConfirm(true)}
               className="px-3 py-2 sm:px-4 sm:py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium text-sm sm:text-base touch-manipulation"
@@ -514,7 +522,7 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
                 stroke="rgb(229, 231, 235)"
                 strokeWidth="1"
                 className="hover:stroke-blue-400 hover:stroke-2 transition-all duration-300 cursor-pointer transform hover:scale-105"
-                onClick={() => setEditingPerson(node.person)}
+                onClick={() => canEdit && setEditingPerson(node.person)}
                 style={{ transformOrigin: `${node.x}px ${node.y + CARD_HEIGHT/2}px` }}
               />
               
@@ -525,7 +533,7 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
                 r="28"
                 fill="url(#profileGradient)"
                 className="cursor-pointer"
-                onClick={() => setEditingPerson(node.person)}
+                onClick={() => canEdit && setEditingPerson(node.person)}
               />
               
               {/* Profile Image Circle */}
@@ -537,7 +545,7 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
                 stroke="white"
                 strokeWidth="3"
                 className="cursor-pointer"
-                onClick={() => setEditingPerson(node.person)}
+                onClick={() => canEdit && setEditingPerson(node.person)}
               />
               
               {/* Person Icon */}
@@ -548,7 +556,7 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
                 fontSize="20"
                 fill="rgb(59, 130, 246)"
                 className="cursor-pointer"
-                onClick={() => setEditingPerson(node.person)}
+                onClick={() => canEdit && setEditingPerson(node.person)}
               >
                 👤
               </text>
@@ -561,7 +569,7 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
                 fontWeight="600"
                 fill="rgb(17, 24, 39)"
                 className="cursor-pointer"
-                onClick={() => setEditingPerson(node.person)}
+                onClick={() => canEdit && setEditingPerson(node.person)}
               >
                 {node.person.name}
               </text>
@@ -574,7 +582,7 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
                   fontSize="14"
                   fill="rgb(107, 114, 128)"
                   className="cursor-pointer"
-                  onClick={() => setEditingPerson(node.person)}
+                  onClick={() => canEdit && setEditingPerson(node.person)}
                 >
                   Father: {node.person.fatherName}
                 </text>
@@ -587,33 +595,35 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
                 fontSize="12"
                 fill="rgb(107, 114, 128)"
                 className="cursor-pointer"
-                onClick={() => setEditingPerson(node.person)}
+                onClick={() => canEdit && setEditingPerson(node.person)}
               >
                 Added: {new Date(node.person.createdAt).toLocaleDateString()}
               </text>
 
               {/* Hover Edit Button */}
-              <g className="opacity-0 hover:opacity-100 transition-opacity duration-200">
-                <circle
-                  cx={node.x + CARD_WIDTH / 2 - 25}
-                  cy={node.y + 25}
-                  r="15"
-                  fill="rgb(59, 130, 246)"
-                  className="cursor-pointer drop-shadow-md"
-                  onClick={() => setEditingPerson(node.person)}
-                />
-                <text
-                  x={node.x + CARD_WIDTH / 2 - 25}
-                  y={node.y + 29}
-                  textAnchor="middle"
-                  fontSize="10"
-                  fill="white"
-                  className="cursor-pointer"
-                  onClick={() => setEditingPerson(node.person)}
-                >
-                  ✏️
-                </text>
-              </g>
+              {canEdit && (
+                <g className="opacity-0 hover:opacity-100 transition-opacity duration-200">
+                  <circle
+                    cx={node.x + CARD_WIDTH / 2 - 25}
+                    cy={node.y + 25}
+                    r="15"
+                    fill="rgb(59, 130, 246)"
+                    className="cursor-pointer drop-shadow-md"
+                    onClick={() => setEditingPerson(node.person)}
+                  />
+                  <text
+                    x={node.x + CARD_WIDTH / 2 - 25}
+                    y={node.y + 29}
+                    textAnchor="middle"
+                    fontSize="10"
+                    fill="white"
+                    className="cursor-pointer"
+                    onClick={() => setEditingPerson(node.person)}
+                  >
+                    ✏️
+                  </text>
+                </g>
+              )}
             </g>
           ))}
         </svg>
