@@ -99,6 +99,33 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const addPersonWithOverride = async (personData: Omit<Person, 'id' | 'createdAt'>) => {
+    try {
+      setError(null);
+      
+      const newPersonData = {
+        ...personData,
+        createdAt: new Date(),
+      };
+      
+      // If fatherName is provided but no fatherId, try to find the father by name
+      if (personData.fatherName && !personData.fatherId) {
+        const father = people.find(p => p.name.toLowerCase() === personData.fatherName?.toLowerCase());
+        if (father) {
+          newPersonData.fatherId = father.id;
+        }
+      }
+      
+      await FirestoreService.addPersonWithDuplicateOverride(newPersonData);
+      // Real-time listener will update the state automatically
+      
+    } catch (err) {
+      console.error('Failed to add person with override:', err);
+      setError(err instanceof Error ? err.message : 'Failed to add person');
+      throw err;
+    }
+  };
+
   const removePerson = async (id: string) => {
     try {
       setError(null);
@@ -167,14 +194,20 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     return roots.map(root => buildTree(root));
   };
 
+  const clearError = () => {
+    setError(null);
+  };
+
   const value: FamilyTreeData = {
     people,
     loading,
     error,
     addPerson,
+    addPersonWithOverride,
     removePerson,
     updatePerson,
     clearTree,
+    clearError,
     getPerson,
     getChildren,
     getFamilyTree,

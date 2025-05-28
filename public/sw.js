@@ -1,9 +1,9 @@
-const CACHE_NAME = 'find-your-roots-v1';
+const CACHE_NAME = 'find-your-roots-v8';
 const STATIC_CACHE = `${CACHE_NAME}-static`;
 const DYNAMIC_CACHE = `${CACHE_NAME}-dynamic`;
 
 // Increment this version number when you want to force an update
-const SW_VERSION = '1.0.1';
+const SW_VERSION = '1.0.8';
 const SW_TIMESTAMP = Date.now();
 
 console.log(`Service Worker version ${SW_VERSION} loaded at ${new Date(SW_TIMESTAMP).toISOString()}`);
@@ -17,7 +17,8 @@ const STATIC_FILES = [
   '/icons/icon-192x192.png',
   '/icons/icon-512x512.png',
   '/icons/apple-touch-icon.png',
-  '/icons/favicon.ico'
+  '/icons/favicon.ico',
+  '/images/profile-zaki.jpg'
 ];
 
 // Install event - cache static files

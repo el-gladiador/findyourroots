@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { useFamily } from '@/contexts/FamilyContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { detectDuplicates, DuplicateDetectionResult } from '@/lib/duplicateDetection';
+import DuplicateConfirmationModal from './DuplicateConfirmationModal';
 
 interface AddPersonProps {
   onClose: () => void;
@@ -10,7 +12,7 @@ interface AddPersonProps {
 }
 
 export default function AddPerson({ onClose, parentId }: AddPersonProps) {
-  const { addPerson, getPerson, people } = useFamily();
+  const { addPersonWithOverride, getPerson, people } = useFamily();
   const { authUser } = useAuth();
   
   // Check if user can add people (not guest)
@@ -22,9 +24,46 @@ export default function AddPerson({ onClose, parentId }: AddPersonProps) {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [duplicateResult, setDuplicateResult] = useState<DuplicateDetectionResult | null>(null);
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
+  const [pendingPersonData, setPendingPersonData] = useState<{
+    name: string;
+    fatherId?: string;
+    fatherName?: string;
+  } | null>(null);
 
   // Get parent information if parentId is provided
   const parentPerson = parentId ? getPerson(parentId) : null;
+
+  const buildPersonData = () => {
+    const personData: {
+      name: string;
+      fatherId?: string;
+      fatherName?: string;
+    } = {
+      name: formData.name.trim(),
+    };
+
+    // If parentId is provided (from "Add Child" button), use it automatically
+    if (parentId && parentPerson) {
+      personData.fatherId = parentId;
+      personData.fatherName = parentPerson.name;
+    } 
+    // Otherwise, if user manually entered a father name, try to find that person
+    else if (formData.fatherName.trim()) {
+      const father = people.find(p => 
+        p.name.toLowerCase() === formData.fatherName.trim().toLowerCase()
+      );
+      if (father) {
+        personData.fatherId = father.id;
+        personData.fatherName = father.name;
+      } else {
+        personData.fatherName = formData.fatherName.trim();
+      }
+    }
+
+    return personData;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,41 +73,68 @@ export default function AddPerson({ onClose, parentId }: AddPersonProps) {
     setError(null);
 
     try {
-      const personData: {
-        name: string;
-        fatherId?: string;
-        fatherName?: string;
-      } = {
-        name: formData.name.trim(),
-      };
+      const personData = buildPersonData();
 
-      // If parentId is provided (from "Add Child" button), use it automatically
-      if (parentId && parentPerson) {
-        personData.fatherId = parentId;
-        personData.fatherName = parentPerson.name;
-      } 
-      // Otherwise, if user manually entered a father name, try to find that person
-      else if (formData.fatherName.trim()) {
-        const father = people.find(p => 
-          p.name.toLowerCase() === formData.fatherName.trim().toLowerCase()
-        );
-        if (father) {
-          personData.fatherId = father.id;
-          personData.fatherName = father.name;
-        } else {
-          personData.fatherName = formData.fatherName.trim();
-        }
+      // Check for duplicates BEFORE saving
+      const duplicateDetectionResult = detectDuplicates({
+        name: personData.name,
+        fatherName: personData.fatherName,
+        fatherId: personData.fatherId
+      }, people);
+
+      if (duplicateDetectionResult.suggestedAction === 'block') {
+        // 90%+ confidence - complete block
+        const highestMatch = duplicateDetectionResult.matches[0];
+        const confidence = Math.round(highestMatch.confidence * 100);
+        setError(`Cannot add "${personData.name}" - this person already exists in the family tree (${confidence}% match with "${highestMatch.person.name}"). Please check if this person is already in the tree.`);
+        setIsLoading(false);
+        return;
+      } else if (duplicateDetectionResult.suggestedAction === 'review') {
+        // 80-89% confidence - show modal
+        setDuplicateResult(duplicateDetectionResult);
+        setPendingPersonData(personData);
+        setShowDuplicateModal(true);
+        setIsLoading(false);
+        return;
       }
 
-      await addPerson(personData);
-
+      // Less than 80% confidence or no duplicates - proceed directly
+      await addPersonWithOverride(personData);
       setFormData({ name: '', fatherName: '' });
+      onClose();
+
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to add person');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDuplicateConfirm = async () => {
+    if (!pendingPersonData) return;
+    
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      await addPersonWithOverride(pendingPersonData);
+      setFormData({ name: '', fatherName: '' });
+      setShowDuplicateModal(false);
+      setDuplicateResult(null);
+      setPendingPersonData(null);
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add person');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleDuplicateCancel = () => {
+    setShowDuplicateModal(false);
+    setDuplicateResult(null);
+    setPendingPersonData(null);
+    setIsLoading(false);
   };
 
   return (
@@ -177,6 +243,18 @@ export default function AddPerson({ onClose, parentId }: AddPersonProps) {
           </div>
         </form>
       </div>
+
+      {/* Duplicate Confirmation Modal */}
+      {showDuplicateModal && duplicateResult && (
+        <DuplicateConfirmationModal
+          isOpen={showDuplicateModal}
+          newPersonName={formData.name.trim()}
+          matches={duplicateResult.matches}
+          onConfirm={handleDuplicateConfirm}
+          onCancel={handleDuplicateCancel}
+          loading={isLoading}
+        />
+      )}
     </div>
   );
 }

@@ -11,12 +11,14 @@ export interface FamilyTreeData {
   loading: boolean;
   error: string | null;
   addPerson: (person: Omit<Person, 'id' | 'createdAt'>) => Promise<void>;
+  addPersonWithOverride: (person: Omit<Person, 'id' | 'createdAt'>) => Promise<void>;
   removePerson: (id: string) => Promise<void>;
   updatePerson: (id: string, updates: Partial<Person>) => Promise<void>;
   clearTree: () => Promise<void>;
   getPerson: (id: string) => Person | undefined;
   getChildren: (parentId: string) => Person[];
   getFamilyTree: () => FamilyNode[];
+  clearError: () => void;
 }
 
 export interface FamilyNode {

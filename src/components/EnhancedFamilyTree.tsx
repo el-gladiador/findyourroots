@@ -298,9 +298,9 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
   const treeNodes = calculatePositions(buildTree());
   const allNodes = getAllNodes(treeNodes);
 
-  // Zoom and pan handlers
-  const handleZoomIn = () => setZoomLevel(prev => Math.min(prev * 1.2, 3));
-  const handleZoomOut = () => setZoomLevel(prev => Math.max(prev / 1.2, 0.3));
+  // Zoom and pan handlers with improved responsiveness - limited to 10%-100%
+  const handleZoomIn = () => setZoomLevel(prev => Math.min(prev * 1.3, 1.0)); // Max 100%
+  const handleZoomOut = () => setZoomLevel(prev => Math.max(prev / 1.3, 0.1)); // Min 10%
   const handleResetView = () => {
     const { zoom, panX, panY } = calculateOptimalView();
     setZoomLevel(zoom);
@@ -353,14 +353,13 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
     return false;
   };
 
-  // Touch handlers for mobile support
+  // Touch handlers for mobile support with improved responsiveness
   const handleTouchStart = (e: React.TouchEvent) => {
     const touches = e.touches;
     setIsTouching(true);
     
     if (touches.length === 1) {
-      // Always prepare for potential dragging, regardless of where touch starts
-      // The useLongPress hook will handle canceling long press if movement occurs
+      // Single touch - prepare for potential dragging
       setDragStart({ 
         x: touches[0].clientX - panOffset.x, 
         y: touches[0].clientY - panOffset.y 
@@ -399,7 +398,7 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
       
       // If user has moved beyond a small threshold, start dragging
       // This allows dragging to work even when starting on a PersonCard
-      if (distance > 10 && !isDragging) {
+      if (distance > 5 && !isDragging) { // Reduced threshold for better responsiveness
         e.preventDefault();
         setIsDragging(true);
       }
@@ -413,17 +412,43 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
         });
       }
     } else if (touches.length === 2 && lastTouchDistance > 0) {
-      // Two fingers - pinch to zoom
+      // Two fingers - pinch to zoom with center point calculation
       e.preventDefault();
+      
+      const touch1 = touches[0];
+      const touch2 = touches[1];
+      
       const distance = Math.sqrt(
-        Math.pow(touches[0].clientX - touches[1].clientX, 2) +
-        Math.pow(touches[0].clientY - touches[1].clientY, 2)
+        Math.pow(touch1.clientX - touch2.clientX, 2) +
+        Math.pow(touch1.clientY - touch2.clientY, 2)
       );
       
-      const scale = distance / lastTouchDistance;
-      const newZoom = Math.min(Math.max(zoomLevel * scale, 0.3), 3);
-      setZoomLevel(newZoom);
-      setLastTouchDistance(distance);
+      // Calculate the center point between the two touches
+      const centerX = (touch1.clientX + touch2.clientX) / 2;
+      const centerY = (touch1.clientY + touch2.clientY) / 2;
+      
+      // Get container bounds for relative positioning
+      const container = containerRef.current;
+      if (container) {
+        const rect = container.getBoundingClientRect();
+        const relativeCenterX = centerX - rect.left;
+        const relativeCenterY = centerY - rect.top;
+        
+        const scale = distance / lastTouchDistance;
+        const newZoom = Math.min(Math.max(zoomLevel * scale, 0.1), 1.0); // 10% to 100%
+        
+        // Calculate the point in tree coordinates that should remain stationary
+        const treePointX = (relativeCenterX - panOffset.x) / zoomLevel;
+        const treePointY = (relativeCenterY - panOffset.y) / zoomLevel;
+        
+        // Calculate new pan offset to keep that point under the center of the pinch
+        const newPanX = relativeCenterX - (treePointX * newZoom);
+        const newPanY = relativeCenterY - (treePointY * newZoom);
+        
+        setZoomLevel(newZoom);
+        setPanOffset({ x: newPanX, y: newPanY });
+        setLastTouchDistance(distance);
+      }
     }
   };
 
@@ -437,14 +462,32 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
     setLastTouchDistance(0);
   };
 
-  // Wheel zoom
+  // Wheel zoom with mouse-centered zooming
   const handleWheel = (e: React.WheelEvent) => {
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
-      if (e.deltaY < 0) {
-        handleZoomIn();
-      } else {
-        handleZoomOut();
+      
+      // Get mouse position relative to container
+      const container = containerRef.current;
+      if (container) {
+        const rect = container.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+        
+        // Calculate zoom direction and amount
+        const zoomDirection = e.deltaY < 0 ? 1.3 : 1/1.3; // Increased zoom step
+        const newZoom = Math.min(Math.max(zoomLevel * zoomDirection, 0.1), 1.0); // 10% to 100%
+        
+        // Calculate the point in tree coordinates that should remain stationary
+        const treePointX = (mouseX - panOffset.x) / zoomLevel;
+        const treePointY = (mouseY - panOffset.y) / zoomLevel;
+        
+        // Calculate new pan offset to keep that point under the mouse
+        const newPanX = mouseX - (treePointX * newZoom);
+        const newPanY = mouseY - (treePointY * newZoom);
+        
+        setZoomLevel(newZoom);
+        setPanOffset({ x: newPanX, y: newPanY });
       }
     }
   };
@@ -522,7 +565,7 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
     // Calculate zoom to fit all nodes with padding
     const scaleX = availableWidth / treeWidth;
     const scaleY = availableHeight / treeHeight;
-    const newZoom = Math.min(Math.max(Math.min(scaleX, scaleY), 0.3), 3);
+    const newZoom = Math.min(Math.max(Math.min(scaleX, scaleY), 0.1), 1.0); // 10% to 100%
 
     // Calculate center point of the tree in tree coordinate system
     const treeCenterX = (minX + maxX) / 2;
@@ -726,7 +769,7 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
             style={{
               transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomLevel})`,
               transformOrigin: '0 0',
-              transition: isDragging ? 'none' : 'transform 0.3s ease',
+              transition: isDragging || isTouching ? 'none' : 'transform 0.2s ease-out', // Faster transition
             }}
           >
             {/* Connections */}

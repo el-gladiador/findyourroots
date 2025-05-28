@@ -9,10 +9,12 @@ import {
   orderBy,
   onSnapshot,
   Timestamp,
-  DocumentSnapshot
+  DocumentSnapshot,
+  runTransaction
 } from 'firebase/firestore';
 import { db, auth } from './firebase';
 import { Person } from '@/types/family';
+import { detectDuplicates, DuplicateDetectionResult } from './duplicateDetection';
 
 // Collection name
 const COLLECTION_NAME = 'people';
@@ -71,7 +73,7 @@ export class FirestoreService {
     }
   }
 
-  // Add a new person
+  // Add a new person with duplicate detection and atomic operation
   static async addPerson(personData: Omit<Person, 'id'>): Promise<string> {
     try {
       // Verify user is authenticated with Firebase (not just a guest user)
@@ -80,14 +82,79 @@ export class FirestoreService {
         throw new Error('You must be signed in with Google to add a person. Guest users cannot modify data.');
       }
 
+      // Use transaction to ensure atomicity and prevent race conditions
+      const result = await runTransaction(db, async (transaction) => {
+        // Get current people for duplicate detection
+        const collectionRef = collection(db, COLLECTION_NAME);
+        const q = query(collectionRef, orderBy('createdAt', 'desc'));
+        const snapshot = await getDocs(q);
+        const existingPeople = snapshot.docs.map(convertDocToPerson);
+
+        // Check for duplicates
+        const duplicateResult = detectDuplicates({
+          name: personData.name,
+          fatherName: personData.fatherName,
+          fatherId: personData.fatherId
+        }, existingPeople);
+
+        // Handle different confidence levels
+        if (duplicateResult.suggestedAction === 'block') {
+          // 90%+ confidence - complete block with user-friendly message
+          const highestMatch = duplicateResult.matches[0];
+          const confidence = Math.round(highestMatch.confidence * 100);
+          throw new Error(`Cannot add "${personData.name}" - this person already exists in the family tree (${confidence}% match with "${highestMatch.person.name}"). Please check if this person is already in the tree.`);
+        } else if (duplicateResult.suggestedAction === 'review') {
+          // 80-89% confidence - show modal for user decision
+          const error = new Error('DUPLICATE_DETECTED') as Error & { duplicateInfo?: DuplicateDetectionResult };
+          error.duplicateInfo = duplicateResult;
+          throw error;
+        }
+        // Less than 80% confidence - proceed without any modal
+
+        // Create new document reference
+        const docRef = doc(collectionRef);
+        
+        // Add the person with transaction
+        transaction.set(docRef, convertPersonForFirestore(personData));
+        
+        return docRef.id;
+      });
+
+      return result;
+    } catch (error) {
+      console.error('Error adding person:', error);
+      throw error; // Pass original error for better debugging
+    }
+  }
+
+  // Add person with duplicate override (when user confirms to add anyway)
+  static async addPersonWithDuplicateOverride(personData: Omit<Person, 'id'>): Promise<string> {
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        throw new Error('You must be signed in with Google to add a person. Guest users cannot modify data.');
+      }
+
+      // Add without duplicate checking
       const docRef = await addDoc(
         collection(db, COLLECTION_NAME), 
         convertPersonForFirestore(personData)
       );
       return docRef.id;
     } catch (error) {
-      console.error('Error adding person:', error);
-      throw error; // Pass original error for better debugging
+      console.error('Error adding person with override:', error);
+      throw error;
+    }
+  }
+
+  // Check for potential duplicates without adding
+  static async checkForDuplicates(personData: { name: string; fatherName?: string; fatherId?: string }): Promise<DuplicateDetectionResult> {
+    try {
+      const existingPeople = await this.getAllPeople();
+      return detectDuplicates(personData, existingPeople);
+    } catch (error) {
+      console.error('Error checking for duplicates:', error);
+      throw new Error('Failed to check for duplicates');
     }
   }
 
