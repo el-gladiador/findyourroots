@@ -1,37 +1,86 @@
 {
-  "name": "Find Your Roots",
+  "name": "Find Your Roots - Family Tree",
   "short_name": "Family Tree",
-  "description": "Discover and manage your family history",
-  "start_url": "/",
+  "description": "Discover and manage your family history with an interactive family tree",
+  "start_url": "./",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#3b82f6",
-  "orientation": "portrait",
-  "categories": ["lifestyle", "utilities"],
+  "orientation": "portrait-primary",
+  "scope": "./",
+  "categories": ["lifestyle", "utilities", "productivity"],
+  "lang": "en-US",
+  "dir": "ltr",
   "icons": [
     {
-      "src": "/icon-192x192.png",
-      "sizes": "192x192",
+      "src": "./icon-16x16.png",
+      "sizes": "16x16",
       "type": "image/png",
-      "purpose": "maskable"
+      "purpose": "any"
     },
     {
-      "src": "/icon-192x192.png",
+      "src": "./icon-32x32.png",
+      "sizes": "32x32",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icon-192x192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icon-512x512.png",
-      "sizes": "512x512",
+      "src": "./icon-192x192.png",
+      "sizes": "192x192",
       "type": "image/png",
       "purpose": "maskable"
     },
     {
-      "src": "/icon-512x512.png",
+      "src": "./icon-512x512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
+    },
+    {
+      "src": "./icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "View Family Tree",
+      "short_name": "Tree",
+      "description": "View the interactive family tree",
+      "url": "./?tab=home",
+      "icons": [
+        {
+          "src": "./icon-192x192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Search Family",
+      "short_name": "Search",
+      "description": "Search family members",
+      "url": "./?tab=search",
+      "icons": [
+        {
+          "src": "./icon-192x192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "./icon-512x512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "form_factor": "wide"
     }
   ]
 }

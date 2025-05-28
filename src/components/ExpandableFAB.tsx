@@ -49,7 +49,7 @@ export const ExpandableFAB: React.FC<ExpandableFABProps> = ({
     const action = visibleActions[0];
     const Icon = action.icon;
     return (
-      <div className="fixed bottom-32 right-4 z-50">
+      <div className="fixed bottom-[4.5rem] sm:bottom-20 right-4 z-50">
         <button
           onClick={() => {
             if (action.id === 'add' && !canAdd) {
@@ -74,7 +74,7 @@ export const ExpandableFAB: React.FC<ExpandableFABProps> = ({
   }
 
   return (
-    <div className="fixed bottom-20 right-4 z-50">
+    <div className="fixed bottom-[4.5rem] sm:bottom-20 right-4 z-50">
       {/* Action Buttons - Android-style mini FABs */}
       {isExpanded && (
         <div className="absolute bottom-16 right-0 flex flex-col-reverse gap-2 mb-3">
