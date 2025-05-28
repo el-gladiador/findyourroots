@@ -22,24 +22,36 @@ interface TreeNode {
 
 interface PersonCardProps {
   node: TreeNode;
-  CARD_WIDTH: number;
   CARD_HEIGHT: number;
   onMoreClick: (person: Person, event: React.MouseEvent) => void;
 }
 
-function PersonCard({ node, CARD_WIDTH, CARD_HEIGHT, onMoreClick }: PersonCardProps) {
+function PersonCard({ node, CARD_HEIGHT, onMoreClick }: PersonCardProps) {
   const handleMoreClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     onMoreClick(node.person, e);
   };
 
+  // Fixed card width - simpler approach
+  const cardWidth = 200; // Fixed width for all cards
+  
+  // Simple text truncation helper
+  const truncateText = (text: string, maxLength: number): string => {
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength - 3) + "...";
+  };
+
+  const truncatedName = truncateText(node.person.name, 18);
+  const truncatedFatherName = node.person.fatherName ? 
+    truncateText(`Father: ${node.person.fatherName}`, 20) : "";
+
   return (
     <g data-person-card="true">
       {/* Card Shadow */}
       <rect
-        x={node.x - CARD_WIDTH / 2 + 2}
+        x={node.x - cardWidth / 2 + 2}
         y={node.y + 2}
-        width={CARD_WIDTH}
+        width={cardWidth}
         height={CARD_HEIGHT}
         rx="12"
         fill="rgba(0, 0, 0, 0.1)"
@@ -48,9 +60,9 @@ function PersonCard({ node, CARD_WIDTH, CARD_HEIGHT, onMoreClick }: PersonCardPr
       
       {/* Card Background */}
       <rect
-        x={node.x - CARD_WIDTH / 2}
+        x={node.x - cardWidth / 2}
         y={node.y}
-        width={CARD_WIDTH}
+        width={cardWidth}
         height={CARD_HEIGHT}
         rx="12"
         fill="url(#cardGradient)"
@@ -62,30 +74,30 @@ function PersonCard({ node, CARD_WIDTH, CARD_HEIGHT, onMoreClick }: PersonCardPr
         }}
       />
       
-      {/* Profile Image Background - Moved to top center */}
+      {/* Profile Image Background */}
       <circle
         cx={node.x}
-        cy={node.y + 35}
-        r="28"
+        cy={node.y + 25}
+        r="18"
         fill="url(#profileGradient)"
       />
       
       {/* Profile Image Circle */}
       <circle
         cx={node.x}
-        cy={node.y + 35}
-        r="25"
+        cy={node.y + 25}
+        r="15"
         fill="rgb(243, 244, 246)"
         stroke="white"
-        strokeWidth="3"
+        strokeWidth="2"
       />
       
-      {/* Person Icon - Centered at top */}
+      {/* Person Icon */}
       <text
         x={node.x}
-        y={node.y + 42}
+        y={node.y + 30}
         textAnchor="middle"
-        fontSize="20"
+        fontSize="14"
         fill="rgb(59, 130, 246)"
       >
         👤
@@ -94,32 +106,32 @@ function PersonCard({ node, CARD_WIDTH, CARD_HEIGHT, onMoreClick }: PersonCardPr
       {/* Name - Below icon, centered */}
       <text
         x={node.x}
-        y={node.y + 78}
+        y={node.y + 55}
         textAnchor="middle"
         fontSize="16"
         fontWeight="600"
         fill="rgb(17, 24, 39)"
       >
-        {node.person.name}
+        {truncatedName}
       </text>
 
       {/* Father Name - Below name, centered */}
       {node.person.fatherName && (
         <text
           x={node.x}
-          y={node.y + 96}
+          y={node.y + 75}
           textAnchor="middle"
           fontSize="12"
           fill="rgb(107, 114, 128)"
         >
-          Father: {node.person.fatherName}
+          {truncatedFatherName}
         </text>
       )}
 
       {/* Date Added - At bottom, centered */}
       <text
         x={node.x}
-        y={node.y + 110}
+        y={node.y + 95}
         textAnchor="middle"
         fontSize="10"
         fill="rgb(107, 114, 128)"
@@ -130,15 +142,15 @@ function PersonCard({ node, CARD_WIDTH, CARD_HEIGHT, onMoreClick }: PersonCardPr
       {/* More Button - Top right corner */}
       <g className="cursor-pointer" onClick={handleMoreClick}>
         <circle
-          cx={node.x + CARD_WIDTH / 2 - 20}
-          cy={node.y + 20}
+          cx={node.x + cardWidth / 2 - 20}
+          cy={node.y + 15}
           r="12"
           fill="rgba(107, 114, 128, 0.1)"
           className="hover:fill-blue-100 transition-colors duration-200"
         />
         <text
-          x={node.x + CARD_WIDTH / 2 - 20}
-          y={node.y + 25}
+          x={node.x + cardWidth / 2 - 20}
+          y={node.y + 20}
           textAnchor="middle"
           fontSize="14"
           fill="rgb(107, 114, 128)"
@@ -171,10 +183,10 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
 
   // Card dimensions - responsive
   const [dimensions, setDimensions] = useState({
-    CARD_WIDTH: 280,
+    CARD_WIDTH: 200, // Fixed width for all cards
     CARD_HEIGHT: 120,
     LEVEL_HEIGHT: 200,
-    SIBLING_SPACING: 320
+    SIBLING_SPACING: 240 // Adjusted spacing for fixed width cards
   });
 
   // Update dimensions based on window size
@@ -182,10 +194,10 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
     const updateDimensions = () => {
       const isMobile = window.innerWidth < 768;
       setDimensions({
-        CARD_WIDTH: isMobile ? 240 : 280,
+        CARD_WIDTH: 200, // Keep fixed width on all devices
         CARD_HEIGHT: isMobile ? 100 : 120,
         LEVEL_HEIGHT: isMobile ? 160 : 200,
-        SIBLING_SPACING: isMobile ? 260 : 320
+        SIBLING_SPACING: isMobile ? 220 : 240 // Adjusted for fixed width
       });
     };
 
@@ -722,7 +734,7 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
 
             {/* Person Cards */}
             {allNodes.map((node) => (
-              <PersonCard key={node.person.id} node={node} CARD_WIDTH={CARD_WIDTH} CARD_HEIGHT={CARD_HEIGHT} onMoreClick={handleMoreClick} />
+              <PersonCard key={node.person.id} node={node} CARD_HEIGHT={CARD_HEIGHT} onMoreClick={handleMoreClick} />
             ))}
           </g>
         </svg>
