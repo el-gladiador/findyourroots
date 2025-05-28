@@ -101,7 +101,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Family Tree",
+    title: "Find Your Roots",
     startupImage: [
       {
         url: "/icons/apple-touch-icon.png",
@@ -125,7 +125,7 @@ export const metadata: Metadata = {
     "mobile-web-app-capable": "yes",
     "apple-mobile-web-app-capable": "yes",
     "apple-mobile-web-app-status-bar-style": "default",
-    "apple-mobile-web-app-title": "Family Tree",
+    "apple-mobile-web-app-title": "Find Your Roots",
     "application-name": "Find Your Roots",
     "msapplication-TileColor": "#3b82f6",
     "msapplication-config": "/browserconfig.xml"

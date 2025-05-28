@@ -1,9 +1,9 @@
-const CACHE_NAME = 'find-your-roots-v5';
+const CACHE_NAME = 'find-your-roots-v1';
 const STATIC_CACHE = `${CACHE_NAME}-static`;
 const DYNAMIC_CACHE = `${CACHE_NAME}-dynamic`;
 
 // Increment this version number when you want to force an update
-const SW_VERSION = '1.0.5';
+const SW_VERSION = '1.0.1';
 const SW_TIMESTAMP = Date.now();
 
 console.log(`Service Worker version ${SW_VERSION} loaded at ${new Date(SW_TIMESTAMP).toISOString()}`);

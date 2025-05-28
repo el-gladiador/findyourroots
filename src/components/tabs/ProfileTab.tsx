@@ -2,6 +2,7 @@
 
 import { TabType } from '../TabContainer';
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 
 interface ProfileTabProps {
   onTabChange?: (tab: TabType) => void;
@@ -9,6 +10,7 @@ interface ProfileTabProps {
 
 export default function ProfileTab({ }: ProfileTabProps) {
   const [appVersion, setAppVersion] = useState('1.0.3'); // Default fallback version
+  const [imageError, setImageError] = useState(false);
 
   useEffect(() => {
     // Get version from service worker
@@ -48,14 +50,30 @@ export default function ProfileTab({ }: ProfileTabProps) {
       {/* Author Profile Header */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
         <div className="text-center mb-6">
-          <div className="w-24 h-24 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
-            <span className="text-3xl text-white">ZA</span>
-          </div>
+          {/* Author Profile Image - Always show Zaki's profile image */}
+          {!imageError ? (
+            <div className="w-24 h-24 rounded-full mx-auto mb-4 shadow-lg overflow-hidden relative">
+              <Image 
+                src="/images/profile-zaki.jpg" 
+                alt="Zaki Amiri"
+                width={96}
+                height={96}
+                className="object-cover"
+                priority
+                onError={() => setImageError(true)}
+              />
+            </div>
+          ) : (
+            <div className="w-24 h-24 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+              <span className="text-3xl text-white">ZA</span>
+            </div>
+          )}
+          
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">
             Zaki Amiri
           </h2>
           <p className="text-gray-600 dark:text-gray-400 mb-4">
-            Creator & Developer • Heritage Technology Specialist
+            Creator & Developer • Software Engineer
           </p>
           
           <div className="border-t border-gray-200 dark:border-gray-700 pt-5 mt-5">
