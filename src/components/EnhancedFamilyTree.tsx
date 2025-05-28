@@ -7,7 +7,6 @@ import { Person } from '@/types/family';
 import EditPerson from './EditPerson';
 import ContextMenu from './ContextMenu';
 import { ExpandableFAB } from './ExpandableFAB';
-import { useLongPress } from '@/hooks/useLongPress';
 
 interface FamilyTreeProps {
   onAddPerson?: (parentId?: string) => void;
@@ -25,17 +24,17 @@ interface PersonCardProps {
   node: TreeNode;
   CARD_WIDTH: number;
   CARD_HEIGHT: number;
-  onLongPress: (person: Person, event: React.MouseEvent | React.TouchEvent) => void;
+  onMoreClick: (person: Person, event: React.MouseEvent) => void;
 }
 
-function PersonCard({ node, CARD_WIDTH, CARD_HEIGHT, onLongPress }: PersonCardProps) {
-  const longPressProps = useLongPress({
-    onLongPress: (event) => onLongPress(node.person, event),
-    threshold: 500
-  });
+function PersonCard({ node, CARD_WIDTH, CARD_HEIGHT, onMoreClick }: PersonCardProps) {
+  const handleMoreClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onMoreClick(node.person, e);
+  };
 
   return (
-    <g>
+    <g data-person-card="true">
       {/* Card Shadow */}
       <rect
         x={node.x - CARD_WIDTH / 2 + 2}
@@ -47,7 +46,7 @@ function PersonCard({ node, CARD_WIDTH, CARD_HEIGHT, onLongPress }: PersonCardPr
         className="transition-all duration-300"
       />
       
-      {/* Card Background with long press */}
+      {/* Card Background */}
       <rect
         x={node.x - CARD_WIDTH / 2}
         y={node.y}
@@ -57,84 +56,97 @@ function PersonCard({ node, CARD_WIDTH, CARD_HEIGHT, onLongPress }: PersonCardPr
         fill="url(#cardGradient)"
         stroke="rgb(229, 231, 235)"
         strokeWidth="1"
-        className="hover:stroke-blue-400 hover:stroke-2 transition-all duration-300 cursor-pointer transform hover:scale-105"
-        style={{ transformOrigin: `${node.x}px ${node.y + CARD_HEIGHT/2}px` }}
-        {...longPressProps}
+        className="hover:stroke-blue-400 hover:stroke-2 transition-all duration-300 transform hover:scale-105"
+        style={{ 
+          transformOrigin: `${node.x}px ${node.y + CARD_HEIGHT/2}px`,
+        }}
       />
       
-      {/* Profile Image Background */}
+      {/* Profile Image Background - Moved to top center */}
       <circle
-        cx={node.x - CARD_WIDTH / 2 + 40}
-        cy={node.y + 40}
+        cx={node.x}
+        cy={node.y + 35}
         r="28"
         fill="url(#profileGradient)"
-        className="cursor-pointer"
-        {...longPressProps}
       />
       
       {/* Profile Image Circle */}
       <circle
-        cx={node.x - CARD_WIDTH / 2 + 40}
-        cy={node.y + 40}
+        cx={node.x}
+        cy={node.y + 35}
         r="25"
         fill="rgb(243, 244, 246)"
         stroke="white"
         strokeWidth="3"
-        className="cursor-pointer"
-        {...longPressProps}
       />
       
-      {/* Person Icon */}
+      {/* Person Icon - Centered at top */}
       <text
-        x={node.x - CARD_WIDTH / 2 + 40}
-        y={node.y + 47}
+        x={node.x}
+        y={node.y + 42}
         textAnchor="middle"
         fontSize="20"
         fill="rgb(59, 130, 246)"
-        className="cursor-pointer"
-        {...longPressProps}
       >
         👤
       </text>
 
-      {/* Name */}
+      {/* Name - Below icon, centered */}
       <text
-        x={node.x - CARD_WIDTH / 2 + 80}
-        y={node.y + 30}
+        x={node.x}
+        y={node.y + 78}
+        textAnchor="middle"
         fontSize="16"
         fontWeight="600"
         fill="rgb(17, 24, 39)"
-        className="cursor-pointer"
-        {...longPressProps}
       >
         {node.person.name}
       </text>
 
-      {/* Father Name */}
+      {/* Father Name - Below name, centered */}
       {node.person.fatherName && (
         <text
-          x={node.x - CARD_WIDTH / 2 + 80}
-          y={node.y + 50}
-          fontSize="14"
+          x={node.x}
+          y={node.y + 96}
+          textAnchor="middle"
+          fontSize="12"
           fill="rgb(107, 114, 128)"
-          className="cursor-pointer"
-          {...longPressProps}
         >
           Father: {node.person.fatherName}
         </text>
       )}
 
-      {/* Date Added */}
+      {/* Date Added - At bottom, centered */}
       <text
-        x={node.x - CARD_WIDTH / 2 + 80}
-        y={node.y + 70}
-        fontSize="12"
+        x={node.x}
+        y={node.y + 110}
+        textAnchor="middle"
+        fontSize="10"
         fill="rgb(107, 114, 128)"
-        className="cursor-pointer"
-        {...longPressProps}
       >
         Added: {new Date(node.person.createdAt).toLocaleDateString()}
       </text>
+
+      {/* More Button - Top right corner */}
+      <g className="cursor-pointer" onClick={handleMoreClick}>
+        <circle
+          cx={node.x + CARD_WIDTH / 2 - 20}
+          cy={node.y + 20}
+          r="12"
+          fill="rgba(107, 114, 128, 0.1)"
+          className="hover:fill-blue-100 transition-colors duration-200"
+        />
+        <text
+          x={node.x + CARD_WIDTH / 2 - 20}
+          y={node.y + 25}
+          textAnchor="middle"
+          fontSize="14"
+          fill="rgb(107, 114, 128)"
+          className="hover:fill-blue-600 transition-colors duration-200"
+        >
+          ⋯
+        </text>
+      </g>
     </g>
   );
 }
@@ -208,30 +220,17 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
     return rootPeople.map(person => buildNodeTree(person));
   }, [people, LEVEL_HEIGHT]);
 
-  // Handle long press on person cards
-  const handleLongPress = useCallback((person: Person, event: React.MouseEvent | React.TouchEvent) => {
+  // Handle more button click on person cards
+  const handleMoreClick = useCallback((person: Person, event: React.MouseEvent) => {
     // Get the position for the context menu
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
 
-    // Calculate position relative to viewport
-    let clientX: number, clientY: number;
-    
-    if ('touches' in event && event.touches.length > 0) {
-      clientX = event.touches[0].clientX;
-      clientY = event.touches[0].clientY;
-    } else if ('clientX' in event) {
-      clientX = event.clientX;
-      clientY = event.clientY;
-    } else {
-      return;
-    }
-
     setContextMenu({
       person,
       position: {
-        x: clientX,
-        y: clientY
+        x: event.clientX,
+        y: event.clientY
       }
     });
   }, []);
@@ -326,21 +325,48 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
     setIsDragging(false);
   };
 
+  // Helper function to check if touch is on a PersonCard
+  const isTouchOnPersonCard = (touch: React.Touch): boolean => {
+    const element = document.elementFromPoint(touch.clientX, touch.clientY);
+    if (!element) return false;
+    
+    // Check if the element or any of its parents has the person card attribute
+    let current = element as Element;
+    while (current && current !== document.body) {
+      if (current.closest('[data-person-card="true"]')) {
+        return true;
+      }
+      current = current.parentElement as Element;
+    }
+    return false;
+  };
+
   // Touch handlers for mobile support
   const handleTouchStart = (e: React.TouchEvent) => {
-    e.preventDefault();
     const touches = e.touches;
     setIsTouching(true);
     
     if (touches.length === 1) {
-      // Single touch - pan
-      setIsDragging(true);
+      // Always prepare for potential dragging, regardless of where touch starts
+      // The useLongPress hook will handle canceling long press if movement occurs
       setDragStart({ 
         x: touches[0].clientX - panOffset.x, 
         y: touches[0].clientY - panOffset.y 
       });
+      
+      // Check if touch is on a PersonCard
+      const isOnPersonCard = isTouchOnPersonCard(touches[0]);
+      
+      if (!isOnPersonCard) {
+        // Single touch on background - immediately enable pan and prevent default
+        e.preventDefault();
+        setIsDragging(true);
+      }
+      // If on PersonCard, don't prevent default or set dragging yet - 
+      // let the movement detection in handleTouchMove determine if it's a drag
     } else if (touches.length === 2) {
-      // Two fingers - pinch to zoom
+      // Two fingers - pinch to zoom (always prevent default for zoom)
+      e.preventDefault();
       const distance = Math.sqrt(
         Math.pow(touches[0].clientX - touches[1].clientX, 2) +
         Math.pow(touches[0].clientY - touches[1].clientY, 2)
@@ -351,17 +377,32 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    e.preventDefault();
     const touches = e.touches;
     
-    if (touches.length === 1 && isDragging) {
-      // Single touch - pan
-      setPanOffset({
-        x: touches[0].clientX - dragStart.x,
-        y: touches[0].clientY - dragStart.y,
-      });
+    if (touches.length === 1) {
+      // Calculate movement distance from start
+      const deltaX = Math.abs(touches[0].clientX - (dragStart.x + panOffset.x));
+      const deltaY = Math.abs(touches[0].clientY - (dragStart.y + panOffset.y));
+      const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+      
+      // If user has moved beyond a small threshold, start dragging
+      // This allows dragging to work even when starting on a PersonCard
+      if (distance > 10 && !isDragging) {
+        e.preventDefault();
+        setIsDragging(true);
+      }
+      
+      // Continue panning if we're dragging
+      if (isDragging) {
+        e.preventDefault();
+        setPanOffset({
+          x: touches[0].clientX - dragStart.x,
+          y: touches[0].clientY - dragStart.y,
+        });
+      }
     } else if (touches.length === 2 && lastTouchDistance > 0) {
       // Two fingers - pinch to zoom
+      e.preventDefault();
       const distance = Math.sqrt(
         Math.pow(touches[0].clientX - touches[1].clientX, 2) +
         Math.pow(touches[0].clientY - touches[1].clientY, 2)
@@ -375,7 +416,10 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
-    e.preventDefault();
+    // Only prevent default if we were actually dragging
+    if (isDragging) {
+      e.preventDefault();
+    }
     setIsDragging(false);
     setIsTouching(false);
     setLastTouchDistance(0);
@@ -622,7 +666,7 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
           <strong>Navigation:</strong><br />
           • <span className="hidden sm:inline">Drag to pan</span><span className="sm:hidden">Touch & drag</span><br />
           • <span className="hidden sm:inline">Ctrl+Scroll to zoom</span><span className="sm:hidden">Pinch to zoom</span><br />
-          • Long press card for options
+          • Click &ldquo;⋯&rdquo; button for options
         </p>
       </div>
 
@@ -678,7 +722,7 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
 
             {/* Person Cards */}
             {allNodes.map((node) => (
-              <PersonCard key={node.person.id} node={node} CARD_WIDTH={CARD_WIDTH} CARD_HEIGHT={CARD_HEIGHT} onLongPress={handleLongPress} />
+              <PersonCard key={node.person.id} node={node} CARD_WIDTH={CARD_WIDTH} CARD_HEIGHT={CARD_HEIGHT} onMoreClick={handleMoreClick} />
             ))}
           </g>
         </svg>

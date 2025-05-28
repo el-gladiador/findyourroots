@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
 
 interface ExpandableFABProps {
@@ -17,6 +17,37 @@ export const ExpandableFAB: React.FC<ExpandableFABProps> = ({
   showClear
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [bottomOffset, setBottomOffset] = useState('4.5rem');
+
+  useEffect(() => {
+    const calculateBottomOffset = () => {
+      // Check if we're on iOS
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                   (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      
+      // Check if we're on mobile
+      const isMobile = window.innerWidth < 640; // sm breakpoint in Tailwind
+      
+      // On iOS, we need extra space for the home indicator
+      // On desktop, we need less space since the bottom nav is smaller
+      if (isIOS && isMobile) {
+        // iOS mobile: bottom nav (72px) + safe area (34px) + padding (16px) = ~122px ≈ 7.5rem
+        setBottomOffset('7.5rem');
+      } else if (isMobile) {
+        // Android mobile: bottom nav (72px) + padding (16px) = ~88px ≈ 5.5rem
+        setBottomOffset('5.5rem');
+      } else {
+        // Desktop: bottom nav (72px) + padding (16px) = ~88px ≈ 5.5rem
+        setBottomOffset('5.5rem');
+      }
+    };
+
+    calculateBottomOffset();
+    
+    // Recalculate on resize
+    window.addEventListener('resize', calculateBottomOffset);
+    return () => window.removeEventListener('resize', calculateBottomOffset);
+  }, []);
 
   const toggleExpanded = () => {
     setIsExpanded(!isExpanded);
@@ -49,7 +80,10 @@ export const ExpandableFAB: React.FC<ExpandableFABProps> = ({
     const action = visibleActions[0];
     const Icon = action.icon;
     return (
-      <div className="fixed bottom-[4.5rem] sm:bottom-20 right-4 z-50">
+      <div 
+        className="fixed right-4 z-50"
+        style={{ bottom: bottomOffset }}
+      >
         <button
           onClick={() => {
             if (action.id === 'add' && !canAdd) {
@@ -74,7 +108,10 @@ export const ExpandableFAB: React.FC<ExpandableFABProps> = ({
   }
 
   return (
-    <div className="fixed bottom-[4.5rem] sm:bottom-20 right-4 z-50">
+    <div 
+      className="fixed right-4 z-50"
+      style={{ bottom: bottomOffset }}
+    >
       {/* Action Buttons - Android-style mini FABs */}
       {isExpanded && (
         <div className="absolute bottom-16 right-0 flex flex-col-reverse gap-2 mb-3">
