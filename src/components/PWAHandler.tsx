@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 
 interface BeforeInstallPromptEvent extends Event {
   readonly platforms: ReadonlyArray<string>;
@@ -11,161 +11,230 @@ interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
 }
 
+interface UpdateInfo {
+  version: string;
+  timestamp: number;
+}
+
 export default function PWAHandler() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstallable, setIsInstallable] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
-  const [debugInfo, setDebugInfo] = useState<string[]>([]);
-  const [showDebug, setShowDebug] = useState(false);
   const [showIOSInstall, setShowIOSInstall] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
+  const [updateAvailable, setUpdateAvailable] = useState<UpdateInfo | null>(null);
+  const [showUpdatePrompt, setShowUpdatePrompt] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
 
-  const addDebugInfo = (info: string) => {
-    setDebugInfo(prev => [...prev, `${new Date().toLocaleTimeString()}: ${info}`]);
-  };
+  // Check if device is iOS
+  const checkIfIOS = useCallback(() => {
+    const userAgent = navigator.userAgent || navigator.vendor || (window as { opera?: string }).opera || '';
+    const isIOSDevice = /iPad|iPhone|iPod/.test(userAgent) && !(window as { MSStream?: unknown }).MSStream;
+    const isInWebApp = (window.navigator as { standalone?: boolean }).standalone === true;
+    const isInStandaloneMode = window.matchMedia('(display-mode: standalone)').matches;
+    
+    return {
+      isIOS: isIOSDevice,
+      isInstalled: isInWebApp || isInStandaloneMode
+    };
+  }, []);
 
+  // Show update notification
+  const showUpdateNotification = useCallback((updateInfo: UpdateInfo) => {
+    console.log('Showing update notification:', updateInfo);
+    setUpdateAvailable(updateInfo);
+    setShowUpdatePrompt(true);
+    
+    // Also show browser notification if permitted
+    if ('Notification' in window && Notification.permission === 'granted') {
+      const notification = new Notification('App Update Available', {
+        body: `Version ${updateInfo.version} is ready to install`,
+        icon: '/icon-192x192.png',
+        badge: '/icon-192x192.png',
+        tag: 'app-update',
+        requireInteraction: true
+      });
+      
+      notification.onclick = () => {
+        window.focus();
+        notification.close();
+      };
+    }
+  }, []);
+
+  // Handle update acceptance
+  const handleUpdateAccept = useCallback(async () => {
+    if (!updateAvailable) return;
+    
+    setIsUpdating(true);
+    setShowUpdatePrompt(false);
+    
+    try {
+      // Send message to service worker to skip waiting
+      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({ action: 'skipWaiting' });
+        
+        // Wait for the new service worker to take control
+        const waitForControllerChange = new Promise<void>((resolve) => {
+          const handleControllerChange = () => {
+            navigator.serviceWorker.removeEventListener('controllerchange', handleControllerChange);
+            resolve();
+          };
+          navigator.serviceWorker.addEventListener('controllerchange', handleControllerChange);
+        });
+        
+        await waitForControllerChange;
+      }
+      
+      // Reload the page
+      window.location.reload();
+    } catch (error) {
+      console.error('Error during update:', error);
+      setIsUpdating(false);
+      setShowUpdatePrompt(true);
+    }
+  }, [updateAvailable]);
+
+  // Handle update dismissal
+  const handleUpdateDismiss = useCallback(() => {
+    setShowUpdatePrompt(false);
+    setUpdateAvailable(null);
+  }, []);
+
+  // Register service worker and handle updates
   useEffect(() => {
-    addDebugInfo('PWAHandler mounted');
-    
-    // Enhanced iOS device detection with more comprehensive checks
-    const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
-                       (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) ||
-                       /iPhone|iPad|iPod|iOS/.test(navigator.userAgent);
-    
-    const isInStandaloneMode = window.matchMedia && window.matchMedia('(display-mode: standalone)').matches;
-    const isInWebAppiOS = (window.navigator as { standalone?: boolean }).standalone === true;
-    
-    setIsIOS(isIOSDevice);
-    addDebugInfo(`Device: ${isIOSDevice ? 'iOS' : 'Non-iOS'}`);
-    addDebugInfo(`User Agent: ${navigator.userAgent}`);
-    addDebugInfo(`Platform: ${navigator.platform}`);
-    addDebugInfo(`Max Touch Points: ${navigator.maxTouchPoints || 'undefined'}`);
-    addDebugInfo(`Standalone mode: ${isInStandaloneMode}`);
-    addDebugInfo(`iOS WebApp mode: ${isInWebAppiOS}`);
-    addDebugInfo(`Should show iOS install: ${isIOSDevice && !isInWebAppiOS && !isInStandaloneMode}`);
-    
-    // Register service worker
+    const { isIOS: deviceIsIOS, isInstalled: appIsInstalled } = checkIfIOS();
+    setIsIOS(deviceIsIOS);
+    setIsInstalled(appIsInstalled);
+
+    // Show iOS install prompt for iOS devices that aren't installed
+    if (deviceIsIOS && !appIsInstalled) {
+      setTimeout(() => setShowIOSInstall(true), 2000);
+    }
+
+    // Request notification permission
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission().then(permission => {
+        console.log('Notification permission:', permission);
+      });
+    }
+
     if ('serviceWorker' in navigator) {
-      addDebugInfo('Service Worker supported');
       navigator.serviceWorker
-        .register('/sw.js', { scope: '/' })
+        .register('/sw.js', { 
+          scope: '/',
+          updateViaCache: 'none' // Always check for updates
+        })
         .then((registration) => {
-          addDebugInfo(`Service Worker registered: ${registration.scope}`);
-          console.log('Service Worker registered successfully:', registration.scope);
+          console.log('Service Worker registered successfully');
+
+          // Check for updates every 30 seconds when page is visible
+          const checkForUpdates = () => {
+            if (!document.hidden) {
+              registration.update();
+            }
+          };
+
+          // Initial check after 1 second
+          setTimeout(checkForUpdates, 1000);
           
-          // Check for updates immediately
-          registration.update();
-          
-          // Listen for updates
+          // Periodic checks
+          const updateInterval = setInterval(checkForUpdates, 30000);
+
+          // Handle service worker messages
+          const handleMessage = (event: MessageEvent) => {
+            const { data } = event;
+            console.log('Received message from SW:', data);
+
+            switch (data.type) {
+              case 'SW_UPDATE_AVAILABLE':
+                console.log('New version available:', data.version);
+                showUpdateNotification({
+                  version: data.version,
+                  timestamp: data.timestamp
+                });
+                break;
+              
+              case 'SW_ACTIVATED':
+                console.log('Service Worker activated:', data.version);
+                // Could show a brief success message here
+                break;
+            }
+          };
+
+          navigator.serviceWorker.addEventListener('message', handleMessage);
+
+          // Handle when a new service worker is waiting
+          const handleWaiting = (worker: ServiceWorker) => {
+            console.log('New service worker waiting');
+            
+            worker.addEventListener('statechange', () => {
+              console.log('Worker state changed:', worker.state);
+              if (worker.state === 'installed') {
+                console.log('New worker installed and waiting');
+                // The service worker will send a message, so we don't need to act here
+              }
+            });
+          };
+
+          // Check if there's already a waiting worker
+          if (registration.waiting) {
+            handleWaiting(registration.waiting);
+          }
+
+          // Listen for new workers
           registration.addEventListener('updatefound', () => {
             const newWorker = registration.installing;
-            addDebugInfo('New service worker found, installing...');
+            console.log('Update found, new worker installing');
             
             if (newWorker) {
-              newWorker.addEventListener('statechange', () => {
-                addDebugInfo(`New worker state: ${newWorker.state}`);
-                
-                if (newWorker.state === 'installed') {
-                  if (navigator.serviceWorker.controller) {
-                    // New content is available, show update prompt
-                    addDebugInfo('New version available - showing update prompt');
-                    const shouldUpdate = confirm(
-                      'New version available! Click OK to update and reload the app.'
-                    );
-                    if (shouldUpdate) {
-                      newWorker.postMessage({ action: 'skipWaiting' });
-                      window.location.reload();
-                    }
-                  } else {
-                    // No previous version, content is cached for first time
-                    addDebugInfo('Content cached for offline use');
-                  }
-                }
-              });
+              handleWaiting(newWorker);
             }
           });
 
-          // Listen for controller change (when new SW takes control)
+          // Handle controller change (new SW activated)
           navigator.serviceWorker.addEventListener('controllerchange', () => {
-            addDebugInfo('New service worker activated - reloading');
-            window.location.reload();
+            console.log('Controller changed - reloading page');
+            if (!isUpdating) {
+              window.location.reload();
+            }
           });
+
+          // Cleanup
+          return () => {
+            clearInterval(updateInterval);
+            navigator.serviceWorker.removeEventListener('message', handleMessage);
+          };
         })
         .catch((error) => {
-          addDebugInfo(`Service Worker registration failed: ${error.message}`);
           console.error('Service Worker registration failed:', error);
         });
-    } else {
-      addDebugInfo('Service Worker not supported');
-      console.log('Service Worker not supported');
     }
-
-    // Check if manifest is available
-    fetch('/manifest.json')
-      .then(response => {
-        if (response.ok) {
-          addDebugInfo('Manifest.json is accessible');
-          console.log('Manifest.json is accessible');
-          return response.json();
-        } else {
-          addDebugInfo(`Manifest.json not accessible: ${response.status}`);
-          console.error('Manifest.json not accessible:', response.status);
-          throw new Error(`HTTP ${response.status}`);
-        }
-      })
-      .then(manifest => {
-        addDebugInfo(`Manifest loaded: ${manifest.name}`);
-        console.log('Manifest content:', manifest);
-      })
-      .catch(error => {
-        addDebugInfo(`Error checking manifest: ${error.message}`);
-        console.error('Error checking manifest:', error);
-      });
 
     // Handle install prompt
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
-      addDebugInfo('Install prompt intercepted');
+      console.log('Install prompt intercepted');
       setDeferredPrompt(e as BeforeInstallPromptEvent);
       setIsInstallable(true);
     };
 
     // Handle app installed
     const handleAppInstalled = () => {
-      addDebugInfo('App installed');
+      console.log('App installed');
       setIsInstalled(true);
       setIsInstallable(false);
       setDeferredPrompt(null);
-      console.log('PWA was installed');
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     window.addEventListener('appinstalled', handleAppInstalled);
 
-    // Check if app is already installed
-    if (isInStandaloneMode || isInWebAppiOS) {
-      addDebugInfo('App is running in standalone mode (installed)');
-      setIsInstalled(true);
-    }
-
-    // For iOS devices, show manual installation instructions since beforeinstallprompt doesn't fire
-    if (isIOSDevice && !isInWebAppiOS && !isInStandaloneMode) {
-      addDebugInfo('iOS device detected - manual installation available');
-      // Small delay to ensure everything is loaded
-      setTimeout(() => {
-        addDebugInfo('Setting showIOSInstall to true');
-        setShowIOSInstall(true);
-        addDebugInfo('iOS install prompt should now be visible');
-      }, 2000); // Increased delay to 2 seconds for better visibility
-    } else {
-      addDebugInfo(`iOS install not shown: isIOSDevice=${isIOSDevice}, isInWebAppiOS=${isInWebAppiOS}, isInStandaloneMode=${isInStandaloneMode}`);
-    }
-
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
       window.removeEventListener('appinstalled', handleAppInstalled);
     };
-  }, []);
+  }, [checkIfIOS, showUpdateNotification, isUpdating]);
 
   const handleInstallClick = async () => {
     if (!deferredPrompt) return;
@@ -173,18 +242,13 @@ export default function PWAHandler() {
     deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
     
-    if (outcome === 'accepted') {
-      console.log('User accepted the install prompt');
-    } else {
-      console.log('User dismissed the install prompt');
-    }
-    
+    console.log('Install prompt result:', outcome);
     setDeferredPrompt(null);
     setIsInstallable(false);
   };
 
-  // Don't render anything if app is already installed and no debug mode
-  if (isInstalled && !showDebug) {
+  // Don't render anything if app is already installed
+  if (isInstalled && !isInstallable && !showUpdatePrompt) {
     return null;
   }
 
@@ -192,7 +256,7 @@ export default function PWAHandler() {
     <>
       {/* Install Button for Non-iOS */}
       {isInstallable && !isInstalled && !isIOS && (
-        <div className="fixed bottom-4 right-4 z-50">
+        <div className="fixed bottom-4 right-4 z-50 ios-safe-bottom">
           <button
             onClick={handleInstallClick}
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 transition-colors duration-200"
@@ -218,7 +282,7 @@ export default function PWAHandler() {
 
       {/* iOS Install Instructions */}
       {showIOSInstall && isIOS && !isInstalled && (
-        <div className="fixed bottom-4 right-4 z-50 max-w-sm">
+        <div className="fixed bottom-4 right-4 z-50 max-w-sm ios-safe-bottom">
           <div className="bg-blue-600 text-white p-4 rounded-lg shadow-lg relative">
             <button
               onClick={() => setShowIOSInstall(false)}
@@ -242,44 +306,49 @@ export default function PWAHandler() {
         </div>
       )}
 
-      {/* Debug Panel Toggle - only in development */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="fixed bottom-4 left-4 z-50">
-          <button
-            onClick={() => setShowDebug(!showDebug)}
-            className="bg-gray-600 hover:bg-gray-700 text-white px-3 py-2 rounded-lg shadow-lg text-sm transition-colors duration-200"
-            aria-label="Toggle PWA Debug Info"
-          >
-            PWA Debug
-          </button>
-        </div>
-      )}
-
-      {/* Debug Panel */}
-      {showDebug && (
-        <div className="fixed top-4 left-4 z-50 bg-white dark:bg-gray-800 p-4 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 max-w-md max-h-96 overflow-y-auto">
-          <div className="flex justify-between items-center mb-3">
-            <h3 className="font-semibold text-gray-900 dark:text-white">PWA Debug Info</h3>
-            <button
-              onClick={() => setShowDebug(false)}
-              className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-            >
-              ✕
-            </button>
-          </div>
-          <div className="space-y-1 text-xs font-mono">
-            {debugInfo.map((info, index) => (
-              <div key={index} className="text-gray-700 dark:text-gray-300 break-words">
-                {info}
+      {/* Update Notification Banner */}
+      {showUpdatePrompt && updateAvailable && (
+        <div className="fixed top-0 left-0 right-0 z-50 bg-blue-600 text-white p-4 shadow-lg">
+          <div className="max-w-4xl mx-auto flex items-center justify-between">
+            <div className="flex items-center flex-1">
+              <div className="flex-shrink-0 mr-3">
+                <svg 
+                  className="w-6 h-6" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                >
+                  <path 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round" 
+                    strokeWidth={2} 
+                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" 
+                  />
+                </svg>
               </div>
-            ))}
-          </div>
-          <div className="mt-4 pt-3 border-t border-gray-200 dark:border-gray-600">
-            <div className="text-xs space-y-1">
-              <div>iOS: {isIOS ? 'Yes' : 'No'}</div>
-              <div>Installable: {isInstallable ? 'Yes' : 'No'}</div>
-              <div>Installed: {isInstalled ? 'Yes' : 'No'}</div>
-              <div>iOS Install: {showIOSInstall ? 'Yes' : 'No'}</div>
+              <div className="flex-1">
+                <p className="font-medium">
+                  New version available (v{updateAvailable.version})
+                </p>
+                <p className="text-sm text-blue-100">
+                  Update now to get the latest features and improvements
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 ml-4">
+              <button
+                onClick={handleUpdateAccept}
+                disabled={isUpdating}
+                className="bg-white text-blue-600 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-100 transition-colors duration-200 disabled:opacity-50"
+              >
+                {isUpdating ? 'Updating...' : 'Update'}
+              </button>
+              <button
+                onClick={handleUpdateDismiss}
+                className="text-blue-100 hover:text-white px-3 py-2 text-sm"
+              >
+                Later
+              </button>
             </div>
           </div>
         </div>

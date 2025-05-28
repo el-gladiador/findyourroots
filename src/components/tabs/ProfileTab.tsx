@@ -1,12 +1,48 @@
 'use client';
 
 import { TabType } from '../TabContainer';
+import { useState, useEffect } from 'react';
 
 interface ProfileTabProps {
   onTabChange?: (tab: TabType) => void;
 }
 
-export default function ProfileTab({ }: ProfileTabProps = {}) {
+export default function ProfileTab({ }: ProfileTabProps) {
+  const [appVersion, setAppVersion] = useState('1.0.3'); // Default fallback version
+
+  useEffect(() => {
+    // Get version from service worker
+    const getVersionFromSW = () => {
+      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({ action: 'GET_VERSION' });
+      }
+    };
+
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'SW_VERSION_INFO') {
+        setAppVersion(event.data.version);
+      }
+    };
+
+    // Add message listener
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('message', handleMessage);
+      
+      // Try to get version immediately if SW is ready
+      getVersionFromSW();
+      
+      // Also try when service worker becomes ready
+      navigator.serviceWorker.ready.then(() => {
+        getVersionFromSW();
+      });
+    }
+
+    return () => {
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.removeEventListener('message', handleMessage);
+      }
+    };
+  }, []);
   return (
     <div className="max-w-md mx-auto">
       {/* Author Profile Header */}
@@ -19,63 +55,77 @@ export default function ProfileTab({ }: ProfileTabProps = {}) {
             Zaki Amiri
           </h2>
           <p className="text-gray-600 dark:text-gray-400 mb-4">
-            Software Engineer at University of Augsburg
+            Creator & Developer • Heritage Technology Specialist
           </p>
           
           <div className="border-t border-gray-200 dark:border-gray-700 pt-5 mt-5">
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-3">About This Project</h3>
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-3">Our Mission</h3>
             <p className="text-gray-600 dark:text-gray-400 text-sm mb-4 text-left">
-              &quot;Find Your Roots&quot; was created to preserve family heritage and make it accessible to future generations. 
-              This passion project helps document family connections, stories, and history in an intuitive way.
+              Find Your Roots was created with a profound appreciation for the stories that shape us. Every family has a unique 
+              narrative filled with love, courage, and triumph—stories that deserve to be treasured and shared across generations.
             </p>
             
             <p className="text-gray-600 dark:text-gray-400 text-sm mb-4 text-left">
-              As someone deeply interested in genealogy and family history, I built this app to help bridge the gap between generations and keep our stories alive.
+              This platform was thoughtfully designed to bridge the past with the future, using modern technology to honor 
+              ancestral wisdom while making family heritage accessible, beautiful, and meaningful for every generation to come.
             </p>
           </div>
         </div>
       </div>
       
-      {/* App Features */}
+      {/* Core Values & Features */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 mt-4">
-        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Features</h3>
+        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Why Families Love Us</h3>
         
         <div className="space-y-4">
           <div className="flex items-start">
-            <div className="text-blue-600 dark:text-blue-400 mr-3">🌳</div>
+            <div className="text-emerald-600 dark:text-emerald-400 mr-3">🌳</div>
             <div>
-              <h4 className="font-medium text-gray-900 dark:text-white">Interactive Family Tree</h4>
+              <h4 className="font-medium text-gray-900 dark:text-white">Stunning Family Visualization</h4>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                Visualize family connections across generations
+                Watch your family history come alive through our elegant, interactive tree that beautifully reveals the connections that bind generations together
               </p>
             </div>
           </div>
           
           <div className="flex items-start">
-            <div className="text-green-600 dark:text-green-400 mr-3">👤</div>
+            <div className="text-rose-600 dark:text-rose-400 mr-3">💝</div>
             <div>
-              <h4 className="font-medium text-gray-900 dark:text-white">Detailed Profiles</h4>
+              <h4 className="font-medium text-gray-900 dark:text-white">Treasured Stories & Memories</h4>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                Record life details, stories, and connections
+                Safeguard the precious moments, cherished traditions, and heartfelt stories that make your family&apos;s journey truly extraordinary
               </p>
             </div>
           </div>
           
           <div className="flex items-start">
-            <div className="text-purple-600 dark:text-purple-400 mr-3">🔒</div>
+            <div className="text-amber-600 dark:text-amber-400 mr-3">🔐</div>
             <div>
-              <h4 className="font-medium text-gray-900 dark:text-white">Secure Access</h4>
+              <h4 className="font-medium text-gray-900 dark:text-white">Fortress-Level Security</h4>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                Secure data persistence for safe family data management
+                Your family&apos;s most precious stories are protected with military-grade encryption and privacy safeguards that honor the trust you place in us
+              </p>
+            </div>
+          </div>
+          
+          <div className="flex items-start">
+            <div className="text-violet-600 dark:text-violet-400 mr-3">✨</div>
+            <div>
+              <h4 className="font-medium text-gray-900 dark:text-white">Effortless & Delightful</h4>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Experience the joy of exploring your heritage through our thoughtfully crafted interface that works seamlessly on every device, anytime, anywhere
               </p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Contact */}
+      {/* Connect With Us */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 mt-4">
-        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Contact</h3>
+        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Let&apos;s Connect & Share Stories</h3>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4 text-center">
+          We&apos;d be honored to hear about your family&apos;s journey and how we can make this experience even more meaningful for you
+        </p>
         <div className="flex items-center justify-center space-x-6">
           <a href="https://github.com/el-gladiador" target="_blank" rel="noopener noreferrer" className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors" title="GitHub">
             <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
@@ -91,17 +141,14 @@ export default function ProfileTab({ }: ProfileTabProps = {}) {
       </div>
 
       {/* Version Info */}
-      <div className="mt-8 text-center">
+      <div className="mt-6 text-center space-y-2">
         <p className="text-xs text-gray-500 dark:text-gray-600">
-          Find Your Roots v1.0.0
+          Find Your Roots v{appVersion}
         </p>
-      </div>
-      <div className="mt-8 text-center">
         <p className="text-xs text-gray-500 dark:text-gray-600">
-          Created with ❤️ for our heritage preservation
+          Lovingly crafted with 💝 to celebrate families and preserve their timeless legacy
         </p>
       </div>
     </div>
-    
   );
 }

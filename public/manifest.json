@@ -1,11 +1,11 @@
 {
   "name": "Find Your Roots - Family Tree",
-  "short_name": "Family Tree",
+  "short_name": "Find Your Roots",
   "description": "Discover and manage your family history with an interactive family tree",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#3b82f6",
+  "theme_color": "#ffffff",
   "orientation": "portrait-primary",
   "scope": "./",
   "categories": ["lifestyle", "utilities", "productivity"],
@@ -13,39 +13,29 @@
   "dir": "ltr",
   "icons": [
     {
-      "src": "./icon-16x16.png",
-      "sizes": "16x16",
-      "type": "image/png",
-      "purpose": "any"
+      "src": "./icons/favicon.ico",
+      "sizes": "16x16 32x32",
+      "type": "image/x-icon"
     },
     {
-      "src": "./icon-32x32.png",
-      "sizes": "32x32",
-      "type": "image/png",
-      "purpose": "any"
+      "src": "./icons/icon1.png",
+      "sizes": "96x96",
+      "type": "image/png"
     },
     {
-      "src": "./icon-192x192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any"
+      "src": "./icons/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
     },
     {
-      "src": "./icon-192x192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "maskable"
+      "src": "./icons/icon0.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
     },
     {
-      "src": "./icon-512x512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "./icon-512x512.png",
-      "sizes": "512x512",
-      "type": "image/png",
+      "src": "./icons/icon0.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
       "purpose": "maskable"
     }
   ],
@@ -57,8 +47,9 @@
       "url": "./?tab=home",
       "icons": [
         {
-          "src": "./icon-192x192.png",
-          "sizes": "192x192"
+          "src": "./icons/icon1.png",
+          "sizes": "96x96",
+          "type": "image/png"
         }
       ]
     },
@@ -69,18 +60,19 @@
       "url": "./?tab=search",
       "icons": [
         {
-          "src": "./icon-192x192.png",
-          "sizes": "192x192"
+          "src": "./icons/icon1.png",
+          "sizes": "96x96",
+          "type": "image/png"
         }
       ]
     }
   ],
   "screenshots": [
     {
-      "src": "./icon-512x512.png",
+      "src": "./icons/apple-touch-icon.png",
       "type": "image/png",
-      "sizes": "512x512",
-      "form_factor": "wide"
+      "sizes": "180x180",
+      "form_factor": "narrow"
     }
   ]
 }

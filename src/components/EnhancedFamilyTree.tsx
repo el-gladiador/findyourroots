@@ -673,14 +673,14 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
       </div>
 
       {/* Instructions - Fixed positioning with top bar padding */}
-      <div className="fixed top-18 right-2 sm:top-20 sm:right-4 z-30 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-2 sm:p-3 max-w-[200px] sm:max-w-xs">
+      {/* <div className="fixed top-18 right-2 sm:top-20 sm:right-4 z-30 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-2 sm:p-3 max-w-[200px] sm:max-w-xs">
         <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
           <strong>Navigation:</strong><br />
           • <span className="hidden sm:inline">Drag to pan</span><span className="sm:hidden">Touch & drag</span><br />
           • <span className="hidden sm:inline">Ctrl+Scroll to zoom</span><span className="sm:hidden">Pinch to zoom</span><br />
           • Click &ldquo;⋯&rdquo; button for options
         </p>
-      </div>
+      </div> */}
 
       {/* Main Tree Area */}
       <div

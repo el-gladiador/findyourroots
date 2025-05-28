@@ -17,8 +17,8 @@ const geistMono = Geist_Mono({
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#3b82f6" },
-    { media: "(prefers-color-scheme: dark)", color: "#1e40af" }
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#0a0a0a" }
   ],
   width: "device-width",
   initialScale: 1,
@@ -28,6 +28,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'),
   title: {
     default: "Find Your Roots - Family Tree",
     template: "%s | Find Your Roots"
@@ -66,9 +67,9 @@ export const metadata: Metadata = {
     description: "Discover and manage your family history with our interactive family tree application.",
     images: [
       {
-        url: "/icon-512x512.png",
-        width: 512,
-        height: 512,
+        url: "/icons/apple-touch-icon.png",
+        width: 180,
+        height: 180,
         alt: "Find Your Roots Logo"
       }
     ]
@@ -77,22 +78,23 @@ export const metadata: Metadata = {
     card: "summary",
     title: "Find Your Roots - Family Tree",
     description: "Discover and manage your family history with an interactive family tree.",
-    images: ["/icon-512x512.png"]
+    images: ["/icons/apple-touch-icon.png"]
   },
   manifest: "/manifest.json",
   icons: {
     icon: [
-      { url: "/icon-32x32.png", sizes: "32x32", type: "image/png" },
-      { url: "/icon-16x16.png", sizes: "16x16", type: "image/png" }
+      { url: "/icons/icon-32x32.png", sizes: "32x32", type: "image/png" },
+      { url: "/icons/icon-16x16.png", sizes: "16x16", type: "image/png" },
+      { url: "/icons/icon0.svg", sizes: "any", type: "image/svg+xml" }
     ],
-    shortcut: "/icon-192x192.png",
+    shortcut: "/icons/apple-touch-icon.png",
     apple: [
-      { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }
+      { url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" }
     ],
     other: [
       {
         rel: "apple-touch-icon-precomposed",
-        url: "/apple-touch-icon.png"
+        url: "/icons/apple-touch-icon.png"
       }
     ]
   },
@@ -102,19 +104,19 @@ export const metadata: Metadata = {
     title: "Family Tree",
     startupImage: [
       {
-        url: "/apple-touch-icon.png",
+        url: "/icons/apple-touch-icon.png",
         media: "(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2)"
       },
       {
-        url: "/icon-192x192.png",
+        url: "/icons/apple-touch-icon.png",
         media: "(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2)"
       },
       {
-        url: "/icon-192x192.png",
+        url: "/icons/apple-touch-icon.png",
         media: "(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2)"
       },
       {
-        url: "/icon-512x512.png",
+        url: "/icons/apple-touch-icon.png",
         media: "(device-width: 768px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 2)"
       }
     ]
@@ -140,6 +142,42 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        {/* Dynamic theme color script */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              function updateThemeColor() {
+                const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                const themeColor = isDark ? '#0a0a0a' : '#ffffff';
+                
+                // Update theme-color meta tag
+                let metaThemeColor = document.querySelector('meta[name="theme-color"]');
+                if (!metaThemeColor) {
+                  metaThemeColor = document.createElement('meta');
+                  metaThemeColor.name = 'theme-color';
+                  document.head.appendChild(metaThemeColor);
+                }
+                metaThemeColor.content = themeColor;
+                
+                // Update for iOS safari
+                let metaAppleStatusBar = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+                if (!metaAppleStatusBar) {
+                  metaAppleStatusBar = document.createElement('meta');
+                  metaAppleStatusBar.name = 'apple-mobile-web-app-status-bar-style';
+                  document.head.appendChild(metaAppleStatusBar);
+                }
+                metaAppleStatusBar.content = isDark ? 'black-translucent' : 'default';
+              }
+              
+              // Update on load
+              updateThemeColor();
+              
+              // Listen for theme changes
+              window.matchMedia('(prefers-color-scheme: dark)').addListener(updateThemeColor);
+            `
+          }}
+        />
+        
         <AuthProvider>
           <FamilyProvider>
             {children}

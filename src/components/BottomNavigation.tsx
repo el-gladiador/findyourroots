@@ -49,7 +49,7 @@ interface BottomNavigationProps {
 export default function BottomNavigation({ activeTab, setActiveTab }: BottomNavigationProps) {
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 z-50">
+    <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 z-50 ios-safe-bottom">
       <nav className="flex justify-around items-center py-2 px-4 max-w-md mx-auto">
         {navigation.map((item) => {
           const isActive = activeTab === item.tab;
