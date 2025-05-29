@@ -104,8 +104,9 @@ export default function LoginScreen() {
                   Guest vs Google Sign-in
                 </h4>
                 <ul className="text-xs text-blue-800 dark:text-blue-400 space-y-1">
-                  <li>• <strong>Guest:</strong> View-only access, no changes saved</li>
-                  <li>• <strong>Google:</strong> Full access to view and edit (if admin)</li>
+                  <li>• <strong>Guest:</strong> View-only access, blurred tree display</li>
+                  <li>• <strong>Google User:</strong> Full tree view and interaction</li>
+                  <li>• <strong>Admin:</strong> Can add/edit/delete family members</li>
                 </ul>
               </div>
             </div>

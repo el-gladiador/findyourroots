@@ -10,8 +10,8 @@ export default function HomeTab() {
   const [showAddPerson, setShowAddPerson] = useState(false);
   const [selectedParentId, setSelectedParentId] = useState<string | undefined>(undefined);
   
-  // Check if user can add people (not guest)
-  const canAdd = !authUser?.isGuest;
+  // Check if user can add people (admin only)
+  const canAdd = authUser?.role === 'admin';
 
   const handleAddPerson = (parentId?: string) => {
     setSelectedParentId(parentId);

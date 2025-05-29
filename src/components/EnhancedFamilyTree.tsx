@@ -232,8 +232,11 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
     return rootPeople.map(person => buildNodeTree(person));
   }, [people, LEVEL_HEIGHT]);
 
-  // Handle more button click on person cards
+  // Handle more button click on person cards - disabled for guests
   const handleMoreClick = useCallback((person: Person, event: React.MouseEvent) => {
+    // Disable context menu for guest users
+    if (authUser?.isGuest) return;
+    
     // Get the position for the context menu
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
@@ -245,7 +248,7 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
         y: event.clientY
       }
     });
-  }, []);
+  }, [authUser]);
 
   // Close context menu
   const closeContextMenu = useCallback(() => {
@@ -298,17 +301,27 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
   const treeNodes = calculatePositions(buildTree());
   const allNodes = getAllNodes(treeNodes);
 
-  // Zoom and pan handlers with improved responsiveness - limited to 10%-100%
-  const handleZoomIn = () => setZoomLevel(prev => Math.min(prev * 1.3, 1.0)); // Max 100%
-  const handleZoomOut = () => setZoomLevel(prev => Math.max(prev / 1.3, 0.1)); // Min 10%
+  // Zoom and pan handlers with improved responsiveness - limited to 10%-100% and disabled for guests
+  const handleZoomIn = () => {
+    if (authUser?.isGuest) return;
+    setZoomLevel(prev => Math.min(prev * 1.3, 1.0)); // Max 100%
+  };
+  const handleZoomOut = () => {
+    if (authUser?.isGuest) return;
+    setZoomLevel(prev => Math.max(prev / 1.3, 0.1)); // Min 10%
+  };
   const handleResetView = () => {
+    if (authUser?.isGuest) return;
     const { zoom, panX, panY } = calculateOptimalView();
     setZoomLevel(zoom);
     setPanOffset({ x: panX, y: panY });
   };
 
-  // Mouse/touch handlers for panning
+  // Mouse/touch handlers for panning - disabled for guests
   const handleMouseDown = (e: React.MouseEvent) => {
+    // Disable interactions for guest users
+    if (authUser?.isGuest) return;
+    
     // Don't handle mouse events if currently touching (prevents conflicts on touch devices)
     if (isTouching) return;
     
@@ -319,6 +332,9 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
+    // Disable interactions for guest users
+    if (authUser?.isGuest) return;
+    
     // Don't handle mouse events if currently touching
     if (isTouching) return;
     
@@ -331,6 +347,9 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
   };
 
   const handleMouseUp = () => {
+    // Disable interactions for guest users
+    if (authUser?.isGuest) return;
+    
     // Don't handle mouse events if currently touching
     if (isTouching) return;
     
@@ -353,8 +372,11 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
     return false;
   };
 
-  // Touch handlers for mobile support with improved responsiveness
+  // Touch handlers for mobile support with improved responsiveness - disabled for guests
   const handleTouchStart = (e: React.TouchEvent) => {
+    // Disable interactions for guest users
+    if (authUser?.isGuest) return;
+    
     const touches = e.touches;
     setIsTouching(true);
     
@@ -388,6 +410,9 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
+    // Disable interactions for guest users
+    if (authUser?.isGuest) return;
+    
     const touches = e.touches;
     
     if (touches.length === 1) {
@@ -453,6 +478,9 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
+    // Disable interactions for guest users
+    if (authUser?.isGuest) return;
+    
     // Only prevent default if we were actually dragging
     if (isDragging) {
       e.preventDefault();
@@ -462,8 +490,11 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
     setLastTouchDistance(0);
   };
 
-  // Wheel zoom with mouse-centered zooming
+  // Wheel zoom with mouse-centered zooming - disabled for guests
   const handleWheel = (e: React.WheelEvent) => {
+    // Disable interactions for guest users
+    if (authUser?.isGuest) return;
+    
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
       
@@ -650,9 +681,9 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
     );
   }
 
-  // Only allow edits for admin users
+  // Only allow edits and adds for admin users
   const canEdit = isAdmin;
-  const canAdd = !authUser?.isGuest; // Allow authenticated users to add, but only admin can edit/delete
+  const canAdd = isAdmin; // Only admin can add people
 
   // Context menu handlers
   const handleContextMenuAction = {
@@ -678,16 +709,17 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
 
   return (
     <div className="relative w-full h-full">
-      {/* Controls - Fixed positioning with top bar padding */}
-      <div className="fixed top-18 left-2 sm:top-20 sm:left-4 z-30 flex flex-col gap-1 sm:gap-2">
-        {/* Zoom Controls */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-1 sm:p-2">
-          <div className="flex items-center gap-1 sm:gap-2">
-            <button
-              onClick={handleZoomOut}
-              className="p-2 sm:p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors touch-manipulation"
-              title="Zoom Out"
-            >
+      {/* Controls - Fixed positioning with top bar padding - Hidden for guests */}
+      {!authUser?.isGuest && (
+        <div className="fixed top-18 left-2 sm:top-20 sm:left-4 z-30 flex flex-col gap-1 sm:gap-2">
+          {/* Zoom Controls */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-1 sm:p-2">
+            <div className="flex items-center gap-1 sm:gap-2">
+              <button
+                onClick={handleZoomOut}
+                className="p-2 sm:p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors touch-manipulation"
+                title="Zoom Out"
+              >
               <svg className="w-4 h-4 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM13 10H7" />
               </svg>
@@ -714,6 +746,7 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
           </div>
         </div>
       </div>
+      )}
 
       {/* Instructions - Fixed positioning with top bar padding */}
       {/* <div className="fixed top-18 right-2 sm:top-20 sm:right-4 z-30 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-2 sm:p-3 max-w-[200px] sm:max-w-xs">
@@ -728,7 +761,9 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
       {/* Main Tree Area */}
       <div
         ref={containerRef}
-        className="w-full h-full overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 cursor-grab touch-pan-x touch-pan-y"
+        className={`w-full h-full overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 cursor-grab touch-pan-x touch-pan-y ${
+          authUser?.isGuest ? 'blur-sm' : ''
+        }`}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
@@ -738,8 +773,8 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         style={{ 
-          cursor: isDragging ? 'grabbing' : 'grab',
-          touchAction: 'none' // Prevent default touch behaviors
+          cursor: authUser?.isGuest ? 'default' : (isDragging ? 'grabbing' : 'grab'),
+          touchAction: authUser?.isGuest ? 'auto' : 'none' // Prevent default touch behaviors for non-guests
         }}
       >
         <svg
@@ -851,6 +886,8 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
         isAdmin={isAdmin}
         showClear={people.length > 0}
       />
+
+
     </div>
   );
 }

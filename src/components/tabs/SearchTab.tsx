@@ -2,23 +2,26 @@
 
 import { useState, useMemo } from 'react';
 import { useFamily } from '@/contexts/FamilyContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { Person } from '@/types/family';
 
 export default function SearchTab() {
   const { people, getPerson } = useFamily();
+  const { authUser } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
 
-  // Search logic - filter people based on name or father's name
+  // Search logic - filter people based on name or father's name (only for logged-in users)
   const searchResults = useMemo(() => {
-    if (!searchQuery.trim()) return [];
+    // Only allow search for non-guest users
+    if (authUser?.isGuest || !searchQuery.trim()) return [];
     
     const query = searchQuery.toLowerCase();
     return people.filter(person => 
       person.name.toLowerCase().includes(query) ||
       (person.fatherName && person.fatherName.toLowerCase().includes(query))
     );
-  }, [people, searchQuery]);
+  }, [people, searchQuery, authUser]);
 
   // Handle person selection
   const handlePersonClick = (person: Person) => {
@@ -28,6 +31,11 @@ export default function SearchTab() {
   // Handle back to search results
   const handleBack = () => {
     setSelectedPerson(null);
+  };
+
+  // Handle clear search
+  const handleClearSearch = () => {
+    setSearchQuery('');
   };
 
   // Get person's children
@@ -136,15 +144,47 @@ export default function SearchTab() {
         </div>
         <input
           type="text"
-          placeholder="Search by name..."
+          placeholder={authUser?.isGuest ? "Sign in to search..." : "Search by name..."}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+          disabled={authUser?.isGuest}
+          className="w-full pl-10 pr-10 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white disabled:bg-gray-100 dark:disabled:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-60"
         />
+        {/* Clear button */}
+        {searchQuery && !authUser?.isGuest && (
+          <button
+            onClick={handleClearSearch}
+            className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+            type="button"
+          >
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        )}
       </div>
 
+      {/* Guest Access Message */}
+      {authUser?.isGuest && searchQuery.trim() && (
+        <div className="mb-6 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg">
+          <div className="flex items-start">
+            <svg className="w-5 h-5 text-yellow-600 dark:text-yellow-400 mr-3 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.728-.833-2.498 0L4.316 15.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+            <div>
+              <h4 className="font-medium text-yellow-800 dark:text-yellow-200 mb-1">
+                Search Restricted
+              </h4>
+              <p className="text-sm text-yellow-700 dark:text-yellow-300">
+                Please sign in with Google to search the family tree. Guest users can only view the blurred tree structure.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Search Results */}
-      {searchQuery.trim() && (
+      {searchQuery.trim() && !authUser?.isGuest && (
         <div className="space-y-3">
           {searchResults.length > 0 ? (
             <>
@@ -213,13 +253,21 @@ export default function SearchTab() {
             Search Your Family Tree
           </h2>
           <p className="text-gray-600 dark:text-gray-400 mb-4">
-            Find family members by name
+            {authUser?.isGuest ? "Sign in to search family members" : "Find family members by name"}
           </p>
-          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4">
-            <p className="text-sm text-blue-800 dark:text-blue-200">
-              💡 Tip: You can search by first names or father&apos;s names
-            </p>
-          </div>
+          {authUser?.isGuest ? (
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4">
+              <p className="text-sm text-blue-800 dark:text-blue-200">
+                🔒 Search functionality is available for signed-in users only
+              </p>
+            </div>
+          ) : (
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4">
+              <p className="text-sm text-blue-800 dark:text-blue-200">
+                💡 Tip: You can search by first names or father&apos;s names
+              </p>
+            </div>
+          )}
         </div>
       )}
     </div>

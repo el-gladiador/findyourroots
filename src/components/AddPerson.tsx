@@ -15,8 +15,8 @@ export default function AddPerson({ onClose, parentId }: AddPersonProps) {
   const { addPersonWithOverride, getPerson, people } = useFamily();
   const { authUser } = useAuth();
   
-  // Check if user can add people (not guest)
-  const canAdd = !authUser?.isGuest;
+  // Check if user can add people (admin only)
+  const canAdd = authUser?.role === 'admin';
 
   const [formData, setFormData] = useState({
     name: '',
@@ -169,7 +169,7 @@ export default function AddPerson({ onClose, parentId }: AddPersonProps) {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.728-.833-2.498 0L4.316 15.5c-.77.833.192 2.5 1.732 2.5z" />
               </svg>
               <p className="text-xs text-yellow-800 dark:text-yellow-200">
-                Guest users cannot add people. Please sign in.
+                Only admin users can add people. Please sign in with an admin account.
               </p>
             </div>
           </div>

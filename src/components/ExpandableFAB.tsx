@@ -33,7 +33,7 @@ export const ExpandableFAB: React.FC<ExpandableFABProps> = ({
       label: 'Add Person',
       action: onAddPerson,
       enabled: canAdd,
-      description: canAdd ? 'Add a new family member' : 'Sign in to add people'
+      description: canAdd ? 'Add a new family member' : 'Admin access required to add people'
     });
   }
   
@@ -115,7 +115,7 @@ export const ExpandableFAB: React.FC<ExpandableFABProps> = ({
                       key={action.id}
                       onClick={() => {
                         if (!action.enabled && action.id === 'add') {
-                          alert('Please sign in to add people to the family tree.');
+                          alert('Only admin users can add people to the family tree. Please sign in with an admin account.');
                           return;
                         }
                         action.action();
