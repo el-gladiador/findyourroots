@@ -155,6 +155,7 @@ export default function PWAHandler() {
           // Check for updates every 30 seconds when page is visible
           const checkForUpdates = () => {
             if (!document.hidden) {
+              console.log('PWA Handler: Checking for service worker updates...');
               registration.update();
             }
           };
@@ -190,6 +191,15 @@ export default function PWAHandler() {
                 // This prevents notification loops
                 console.log('PWA Handler: Received version info from SW:', data.version);
                 break;
+                
+              case 'SW_SKIP_WAITING_COMPLETE':
+                console.log('PWA Handler: Service Worker skip waiting completed');
+                // Force reload after skip waiting
+                setTimeout(() => {
+                  console.log('PWA Handler: Forcing reload after skip waiting');
+                  window.location.reload();
+                }, 500);
+                break;
             }
           };
 
@@ -198,8 +208,11 @@ export default function PWAHandler() {
           // Check if there's already a waiting worker
           if (registration.waiting) {
             console.log('PWA Handler: Found existing waiting worker on page load');
-            // Don't automatically request version - let the service worker notify us when appropriate
-            console.log('PWA Handler: Waiting for service worker to send update notification');
+            // Show update notification for existing waiting worker
+            showUpdateNotification({
+              version: 'waiting-version',
+              timestamp: Date.now()
+            });
           }
 
           // Listen for new workers
@@ -213,9 +226,13 @@ export default function PWAHandler() {
                 if (newWorker.state === 'installed') {
                   if (navigator.serviceWorker.controller) {
                     // There's an existing service worker, this is an update
-                    console.log('PWA Handler: Update available - new worker installed');
-                    // Don't automatically request version - wait for the service worker to notify us
-                    console.log('PWA Handler: Waiting for activation to trigger update notification');
+                    console.log('PWA Handler: Update available - new worker installed and waiting');
+                    
+                    // Show update notification immediately when we detect a waiting worker
+                    showUpdateNotification({
+                      version: 'new-version', // We'll get the actual version when the user accepts
+                      timestamp: Date.now()
+                    });
                   } else {
                     // First install
                     console.log('PWA Handler: First service worker installation');

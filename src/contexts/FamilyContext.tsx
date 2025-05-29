@@ -10,10 +10,27 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   const [people, setPeople] = useState<Person[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [isOnline, setIsOnline] = useState<boolean>(true);
+
+  // Track online/offline status
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    setIsOnline(navigator.onLine);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   // Initialize Firestore listener on mount
   useEffect(() => {
     let unsubscribe: (() => void) | null = null;
+    let hasReceivedData = false;
 
     const initializeData = async () => {
       try {
@@ -22,16 +39,46 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
 
         // Set up real-time listener
         unsubscribe = FirestoreService.subscribeToUpdates((updatedPeople) => {
-          setPeople(updatedPeople);
+          hasReceivedData = true;
+          
+          // If we get empty data and we're offline, check localStorage
+          if (updatedPeople.length === 0 && !isOnline) {
+            const cached = loadFromLocalStorageSync();
+            if (cached.length > 0) {
+              setPeople(cached);
+              setError('You are offline. Showing cached family tree data.');
+            } else {
+              setPeople(updatedPeople);
+            }
+          } else {
+            setPeople(updatedPeople);
+            // Clear any offline error when we get online data
+            if (error && error.includes('offline')) {
+              setError(null);
+            }
+          }
           setLoading(false);
         });
+
+        // If we don't receive data within a reasonable time and we're offline, 
+        // load from localStorage
+        setTimeout(() => {
+          if (!hasReceivedData && !isOnline) {
+            const cached = loadFromLocalStorageSync();
+            if (cached.length > 0) {
+              setPeople(cached);
+              setError('You are offline. Showing cached family tree data.');
+              setLoading(false);
+            }
+          }
+        }, 2000); // Wait 2 seconds for Firestore
 
       } catch (err) {
         console.error('Failed to initialize family data:', err);
         setError(err instanceof Error ? err.message : 'Failed to load family data');
         setLoading(false);
         
-        // Fallback to localStorage for development
+        // Fallback to localStorage for development/offline
         loadFromLocalStorage();
       }
     };
@@ -44,7 +91,25 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         unsubscribe();
       }
     };
-  }, []);
+  }, [isOnline, error]);
+
+  // Synchronous version of localStorage loading for offline scenarios
+  const loadFromLocalStorageSync = (): Person[] => {
+    try {
+      const stored = localStorage.getItem('familyTreeData');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return parsed.map((p: Partial<Person> & { createdAt: string }) => ({
+          ...p,
+          createdAt: new Date(p.createdAt)
+        }));
+      }
+      return [];
+    } catch (error) {
+      console.error('Failed to load family data from localStorage:', error);
+      return [];
+    }
+  };
 
   // Fallback to localStorage for development/offline mode
   const loadFromLocalStorage = () => {
