@@ -1,5 +1,5 @@
 // Increment this version number when you want to force an update
-const SW_VERSION = '1.3.10';
+const SW_VERSION = '1.3.11';
 const SW_TIMESTAMP = Date.now();
 
 const CACHE_NAME = `find-your-roots-v${SW_VERSION}`;

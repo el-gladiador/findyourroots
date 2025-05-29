@@ -24,9 +24,10 @@ interface PersonCardProps {
   node: TreeNode;
   CARD_HEIGHT: number;
   onMoreClick: (person: Person, event: React.MouseEvent) => void;
+  isGuest?: boolean;
 }
 
-function PersonCard({ node, CARD_HEIGHT, onMoreClick }: PersonCardProps) {
+function PersonCard({ node, CARD_HEIGHT, onMoreClick, isGuest = false }: PersonCardProps) {
   const handleMoreClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     onMoreClick(node.person, e);
@@ -111,6 +112,7 @@ function PersonCard({ node, CARD_HEIGHT, onMoreClick }: PersonCardProps) {
         fontSize="16"
         fontWeight="600"
         fill="rgb(17, 24, 39)"
+        filter={isGuest ? "url(#nameBlur)" : undefined}
       >
         {truncatedName}
       </text>
@@ -123,6 +125,7 @@ function PersonCard({ node, CARD_HEIGHT, onMoreClick }: PersonCardProps) {
           textAnchor="middle"
           fontSize="12"
           fill="rgb(107, 114, 128)"
+          filter={isGuest ? "url(#nameBlur)" : undefined}
         >
           {truncatedFatherName}
         </text>
@@ -761,9 +764,7 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
       {/* Main Tree Area */}
       <div
         ref={containerRef}
-        className={`w-full h-full overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 cursor-grab touch-pan-x touch-pan-y ${
-          authUser?.isGuest ? 'blur-sm' : ''
-        }`}
+        className="w-full h-full overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 cursor-grab touch-pan-x touch-pan-y"
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
@@ -786,6 +787,11 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
         >
           {/* SVG Definitions */}
           <defs>
+            {/* Blur filter for guest users */}
+            <filter id="nameBlur">
+              <feGaussianBlur stdDeviation="4"/>
+            </filter>
+            
             {/* Gradient for cards */}
             <linearGradient id="cardGradient" x1="0%" y1="0%" x2="100%" y2="100%">
               <stop offset="0%" style={{ stopColor: 'white', stopOpacity: 1 }} />
@@ -812,7 +818,7 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
 
             {/* Person Cards */}
             {allNodes.map((node) => (
-              <PersonCard key={node.person.id} node={node} CARD_HEIGHT={CARD_HEIGHT} onMoreClick={handleMoreClick} />
+              <PersonCard key={node.person.id} node={node} CARD_HEIGHT={CARD_HEIGHT} onMoreClick={handleMoreClick} isGuest={authUser?.isGuest} />
             ))}
           </g>
         </svg>
