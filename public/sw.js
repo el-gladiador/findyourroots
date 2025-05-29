@@ -1,10 +1,11 @@
-const CACHE_NAME = 'find-your-roots-v8';
+// Increment this version number when you want to force an update
+const SW_VERSION = '1.3.02';
+const SW_TIMESTAMP = Date.now();
+
+const CACHE_NAME = `find-your-roots-v${SW_VERSION}`;
 const STATIC_CACHE = `${CACHE_NAME}-static`;
 const DYNAMIC_CACHE = `${CACHE_NAME}-dynamic`;
-
-// Increment this version number when you want to force an update
-const SW_VERSION = '1.0.8';
-const SW_TIMESTAMP = Date.now();
+const JS_CACHE = `${CACHE_NAME}-js`;
 
 console.log(`Service Worker version ${SW_VERSION} loaded at ${new Date(SW_TIMESTAMP).toISOString()}`);
 
@@ -39,17 +40,8 @@ self.addEventListener('install', (event) => {
       })
       .then(() => {
         console.log('Service Worker: Static files cached');
-        // Don't skip waiting automatically - let the client decide
-        return self.clients.matchAll({ type: 'window' }).then(clients => {
-          console.log(`Service Worker: Notifying ${clients.length} clients of new version`);
-          clients.forEach(client => {
-            client.postMessage({
-              type: 'SW_UPDATE_AVAILABLE',
-              version: SW_VERSION,
-              timestamp: SW_TIMESTAMP
-            });
-          });
-        });
+        // Don't send update notifications here - let activation handle it
+        console.log(`Service Worker: Version ${SW_VERSION} installed, waiting for activation`);
       })
       .catch((error) => {
         console.error('Service Worker: Failed to cache static files', error);
@@ -64,12 +56,19 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys()
       .then((cacheNames) => {
+        console.log('Service Worker: Current caches:', cacheNames);
+        
+        // Delete ALL old caches, including those from previous versions
+        const cachesToDelete = cacheNames.filter(cacheName => {
+          return !cacheName.includes(`find-your-roots-v${SW_VERSION}`);
+        });
+        
+        console.log('Service Worker: Caches to delete:', cachesToDelete);
+        
         return Promise.all(
-          cacheNames.map((cacheName) => {
-            if (!cacheName.includes(CACHE_NAME)) {
-              console.log('Service Worker: Deleting old cache', cacheName);
-              return caches.delete(cacheName);
-            }
+          cachesToDelete.map((cacheName) => {
+            console.log('Service Worker: Deleting old cache', cacheName);
+            return caches.delete(cacheName);
           })
         );
       })
@@ -78,16 +77,29 @@ self.addEventListener('activate', (event) => {
         return self.clients.claim();
       })
       .then(() => {
-        // Notify all clients that the new version is active
-        return self.clients.matchAll({ type: 'window' }).then(clients => {
+        // Check if there are existing clients to determine if this is an update
+        return self.clients.matchAll({ type: 'window' });
+      })
+      .then(clients => {
+        if (clients.length > 0) {
+          console.log(`Service Worker: Notifying ${clients.length} clients about new version ${SW_VERSION}`);
+          
+          // This is an update - notify clients
           clients.forEach(client => {
-            client.postMessage({
-              type: 'SW_ACTIVATED',
-              version: SW_VERSION,
-              timestamp: SW_TIMESTAMP
-            });
+            try {
+              client.postMessage({
+                type: 'SW_UPDATE_AVAILABLE',
+                version: SW_VERSION,
+                timestamp: SW_TIMESTAMP
+              });
+              console.log('Service Worker: Update notification sent to client');
+            } catch (error) {
+              console.error('Service Worker: Failed to send update message:', error);
+            }
           });
-        });
+        } else {
+          console.log('Service Worker: No existing clients - this is a fresh installation');
+        }
       })
   );
 });
@@ -97,19 +109,35 @@ self.addEventListener('message', (event) => {
   console.log('Service Worker: Received message', event.data);
   
   if (event.data && event.data.action === 'skipWaiting') {
-    console.log('Service Worker: User approved update - activating...');
+    console.log('Service Worker: User approved update - calling skipWaiting()...');
+    
+    // Call skipWaiting immediately
     self.skipWaiting();
+    
+    // Notify the client that skipWaiting was called
+    if (event.source) {
+      event.source.postMessage({
+        type: 'SW_SKIP_WAITING_COMPLETE',
+        timestamp: Date.now()
+      });
+    }
   }
   
   if (event.data && event.data.action === 'GET_VERSION') {
+    // Only send version info - don't send update notifications here
+    // to avoid notification loops
     const versionInfo = {
       type: 'SW_VERSION_INFO',
       version: SW_VERSION,
       timestamp: SW_TIMESTAMP
     };
     
+    console.log('Service Worker: Sending version info only (no update notification)');
+    
     // Send response back to the client
-    event.source.postMessage(versionInfo);
+    if (event.source) {
+      event.source.postMessage(versionInfo);
+    }
   }
 });
 
@@ -125,6 +153,38 @@ self.addEventListener('fetch', (event) => {
 
   // Skip external requests (different origin)
   if (url.origin !== self.location.origin) {
+    return;
+  }
+
+  // Handle JavaScript chunks with network-first strategy to prevent stale chunk errors
+  if (url.pathname.includes('/_next/static/chunks/') || 
+      url.pathname.includes('.js') || 
+      url.pathname.includes('.js.map')) {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response.ok) {
+            // Cache the new JS chunk
+            const responseClone = response.clone();
+            caches.open(JS_CACHE)
+              .then((cache) => {
+                cache.put(request, responseClone);
+              });
+          }
+          return response;
+        })
+        .catch(() => {
+          // Only fall back to cache for JS files if network fails
+          return caches.match(request).then(cachedResponse => {
+            if (cachedResponse) {
+              console.log('Service Worker: Serving cached JS file:', url.pathname);
+              return cachedResponse;
+            }
+            // If no cached version, throw an error
+            throw new Error(`JavaScript file not available: ${url.pathname}`);
+          });
+        })
+    );
     return;
   }
 
@@ -151,7 +211,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // For all other requests, use cache-first strategy
+  // For all other requests (HTML, CSS, images), use cache-first strategy
   event.respondWith(
     caches.match(request)
       .then((cachedResponse) => {

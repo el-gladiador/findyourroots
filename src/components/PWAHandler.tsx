@@ -25,6 +25,7 @@ export default function PWAHandler() {
   const [updateAvailable, setUpdateAvailable] = useState<UpdateInfo | null>(null);
   const [showUpdatePrompt, setShowUpdatePrompt] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [dismissedUpdate, setDismissedUpdate] = useState<string | null>(null);
 
   // Check if device is iOS
   const checkIfIOS = useCallback(() => {
@@ -41,65 +42,89 @@ export default function PWAHandler() {
 
   // Show update notification
   const showUpdateNotification = useCallback((updateInfo: UpdateInfo) => {
-    console.log('Showing update notification:', updateInfo);
+    console.log('PWA Handler: Checking if update notification should be shown:', updateInfo);
+    
+    // Don't show if this version was already dismissed recently
+    if (dismissedUpdate === updateInfo.version) {
+      console.log('PWA Handler: Update notification dismissed recently, not showing again');
+      return;
+    }
+    
+    // Don't show if we already have an update prompt showing for this version
+    if (updateAvailable && updateAvailable.version === updateInfo.version) {
+      console.log('PWA Handler: Update notification already showing for this version');
+      return;
+    }
+    
+    // Don't show if we're currently updating
+    if (isUpdating) {
+      console.log('PWA Handler: Update in progress, not showing new notification');
+      return;
+    }
+    
+    console.log('PWA Handler: Showing update notification for version:', updateInfo.version);
     setUpdateAvailable(updateInfo);
     setShowUpdatePrompt(true);
-    
-    // Also show browser notification if permitted
-    if ('Notification' in window && Notification.permission === 'granted') {
-      const notification = new Notification('App Update Available', {
-        body: `Version ${updateInfo.version} is ready to install`,
-        icon: '/icon-192x192.png',
-        badge: '/icon-192x192.png',
-        tag: 'app-update',
-        requireInteraction: true
-      });
-      
-      notification.onclick = () => {
-        window.focus();
-        notification.close();
-      };
-    }
-  }, []);
+  }, [dismissedUpdate, updateAvailable, isUpdating]);
 
   // Handle update acceptance
   const handleUpdateAccept = useCallback(async () => {
     if (!updateAvailable) return;
     
+    console.log('PWA Handler: User accepted update for version:', updateAvailable.version);
     setIsUpdating(true);
     setShowUpdatePrompt(false);
     
+    // Clear the dismissed update state to prevent conflicts
+    setDismissedUpdate(null);
+    
     try {
+      console.log('PWA Handler: Starting update process...');
+      
       // Send message to service worker to skip waiting
       if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        console.log('PWA Handler: Sending skipWaiting message to current controller');
         navigator.serviceWorker.controller.postMessage({ action: 'skipWaiting' });
-        
-        // Wait for the new service worker to take control
-        const waitForControllerChange = new Promise<void>((resolve) => {
-          const handleControllerChange = () => {
-            navigator.serviceWorker.removeEventListener('controllerchange', handleControllerChange);
-            resolve();
-          };
-          navigator.serviceWorker.addEventListener('controllerchange', handleControllerChange);
-        });
-        
-        await waitForControllerChange;
       }
       
-      // Reload the page
+      // Also try to find waiting service worker
+      const registration = await navigator.serviceWorker.getRegistration();
+      if (registration && registration.waiting) {
+        console.log('PWA Handler: Found waiting service worker, sending skipWaiting message');
+        registration.waiting.postMessage({ action: 'skipWaiting' });
+      }
+      
+      // Wait a bit for the service worker to process
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Force reload the page
+      console.log('PWA Handler: Forcing page reload');
       window.location.reload();
     } catch (error) {
-      console.error('Error during update:', error);
-      setIsUpdating(false);
-      setShowUpdatePrompt(true);
+      console.error('PWA Handler: Error during update:', error);
+      
+      // Reset state on error and force reload anyway
+      console.log('PWA Handler: Error occurred, forcing reload anyway');
+      window.location.reload();
     }
   }, [updateAvailable]);
 
   // Handle update dismissal
   const handleUpdateDismiss = useCallback(() => {
+    if (updateAvailable) {
+      console.log('User dismissed update notification for version:', updateAvailable.version);
+      setDismissedUpdate(updateAvailable.version);
+      
+      // Re-show the notification after 30 minutes (1800000 ms)
+      setTimeout(() => {
+        console.log('Re-enabling update notification after 30 minutes');
+        setDismissedUpdate(null);
+      }, 30 * 60 * 1000);
+    }
+    
     setShowUpdatePrompt(false);
     setUpdateAvailable(null);
-  }, []);
+  }, [updateAvailable]);
 
   // Register service worker and handle updates
   useEffect(() => {
@@ -107,17 +132,16 @@ export default function PWAHandler() {
     setIsIOS(deviceIsIOS);
     setIsInstalled(appIsInstalled);
 
+    // Clear any potentially problematic dismissed version state on mount
+    // This helps if the service worker version was reverted and caused conflicts
+    setDismissedUpdate(null);
+
     // Show iOS install prompt for iOS devices that aren't installed
     if (deviceIsIOS && !appIsInstalled) {
       setTimeout(() => setShowIOSInstall(true), 2000);
     }
 
-    // Request notification permission
-    if ('Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission().then(permission => {
-        console.log('Notification permission:', permission);
-      });
-    }
+    // We're using in-app notifications instead of browser notifications for better UX
 
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker
@@ -144,11 +168,11 @@ export default function PWAHandler() {
           // Handle service worker messages
           const handleMessage = (event: MessageEvent) => {
             const { data } = event;
-            console.log('Received message from SW:', data);
+            console.log('PWA Handler: Received message from SW:', data);
 
             switch (data.type) {
               case 'SW_UPDATE_AVAILABLE':
-                console.log('New version available:', data.version);
+                console.log('PWA Handler: New version available:', data.version);
                 showUpdateNotification({
                   version: data.version,
                   timestamp: data.timestamp
@@ -156,30 +180,26 @@ export default function PWAHandler() {
                 break;
               
               case 'SW_ACTIVATED':
-                console.log('Service Worker activated:', data.version);
-                // Could show a brief success message here
+                console.log('PWA Handler: Service Worker activated:', data.version);
+                // Reset updating state when SW is activated
+                setIsUpdating(false);
+                break;
+                
+              case 'SW_VERSION_INFO':
+                // Only log version info, don't show notification
+                // This prevents notification loops
+                console.log('PWA Handler: Received version info from SW:', data.version);
                 break;
             }
           };
 
           navigator.serviceWorker.addEventListener('message', handleMessage);
 
-          // Handle when a new service worker is waiting
-          const handleWaiting = (worker: ServiceWorker) => {
-            console.log('New service worker waiting');
-            
-            worker.addEventListener('statechange', () => {
-              console.log('Worker state changed:', worker.state);
-              if (worker.state === 'installed') {
-                console.log('New worker installed and waiting');
-                // The service worker will send a message, so we don't need to act here
-              }
-            });
-          };
-
           // Check if there's already a waiting worker
           if (registration.waiting) {
-            handleWaiting(registration.waiting);
+            console.log('PWA Handler: Found existing waiting worker on page load');
+            // Don't automatically request version - let the service worker notify us when appropriate
+            console.log('PWA Handler: Waiting for service worker to send update notification');
           }
 
           // Listen for new workers
@@ -188,15 +208,20 @@ export default function PWAHandler() {
             console.log('Update found, new worker installing');
             
             if (newWorker) {
-              handleWaiting(newWorker);
-            }
-          });
-
-          // Handle controller change (new SW activated)
-          navigator.serviceWorker.addEventListener('controllerchange', () => {
-            console.log('Controller changed - reloading page');
-            if (!isUpdating) {
-              window.location.reload();
+              newWorker.addEventListener('statechange', () => {
+                console.log('Installing worker state changed:', newWorker.state);
+                if (newWorker.state === 'installed') {
+                  if (navigator.serviceWorker.controller) {
+                    // There's an existing service worker, this is an update
+                    console.log('PWA Handler: Update available - new worker installed');
+                    // Don't automatically request version - wait for the service worker to notify us
+                    console.log('PWA Handler: Waiting for activation to trigger update notification');
+                  } else {
+                    // First install
+                    console.log('PWA Handler: First service worker installation');
+                  }
+                }
+              });
             }
           });
 
