@@ -184,23 +184,23 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
 
-  // Card dimensions - responsive
+  // Card dimensions - responsive (optimized for horizontal layout)
   const [dimensions, setDimensions] = useState({
     CARD_WIDTH: 200, // Fixed width for all cards
     CARD_HEIGHT: 120,
-    LEVEL_HEIGHT: 200,
-    SIBLING_SPACING: 240 // Adjusted spacing for fixed width cards
+    LEVEL_HEIGHT: 350, // Increased horizontal spacing between generations
+    SIBLING_SPACING: 150 // Reduced vertical spacing between siblings
   });
 
-  // Update dimensions based on window size
+  // Update dimensions based on window size (optimized for horizontal layout)
   useEffect(() => {
     const updateDimensions = () => {
       const isMobile = window.innerWidth < 768;
       setDimensions({
         CARD_WIDTH: 200, // Keep fixed width on all devices
         CARD_HEIGHT: isMobile ? 100 : 120,
-        LEVEL_HEIGHT: isMobile ? 160 : 200,
-        SIBLING_SPACING: isMobile ? 220 : 240 // Adjusted for fixed width
+        LEVEL_HEIGHT: isMobile ? 280 : 350, // Increased horizontal spacing
+        SIBLING_SPACING: isMobile ? 120 : 150 // Reduced vertical spacing
       });
     };
 
@@ -227,8 +227,8 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
         person,
         children,
         level,
-        x: 0,
-        y: level * LEVEL_HEIGHT,
+        x: level * LEVEL_HEIGHT, // Horizontal: X increases with generation level
+        y: 0, // Y will be calculated for siblings
       };
     };
 
@@ -258,29 +258,29 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
     setContextMenu(null);
   }, []);
 
-  // Calculate positions for tree nodes
+  // Calculate positions for tree nodes (horizontal layout)
   const calculatePositions = (nodes: TreeNode[]): TreeNode[] => {
-    let currentX = 0;
+    let currentY = 0;
 
     const positionNode = (node: TreeNode): TreeNode => {
       if (node.children.length === 0) {
-        // Leaf node
-        const positioned = { ...node, x: currentX };
-        currentX += SIBLING_SPACING;
+        // Leaf node - position vertically (Y axis for siblings)
+        const positioned = { ...node, y: currentY };
+        currentY += SIBLING_SPACING;
         return positioned;
       }
 
       // Position children first
       const positionedChildren = node.children.map(positionNode);
       
-      // Position parent at center of children
-      const leftmostChild = positionedChildren[0];
-      const rightmostChild = positionedChildren[positionedChildren.length - 1];
-      const centerX = (leftmostChild.x + rightmostChild.x) / 2;
+      // Position parent at center of children (vertically)
+      const topChild = positionedChildren[0];
+      const bottomChild = positionedChildren[positionedChildren.length - 1];
+      const centerY = (topChild.y + bottomChild.y) / 2;
 
       return {
         ...node,
-        x: centerX,
+        y: centerY,
         children: positionedChildren,
       };
     };
@@ -532,18 +532,19 @@ export default function EnhancedFamilyTree({ onAddPerson }: FamilyTreeProps) {
 
     allNodes.forEach((node) => {
       node.children.forEach((child) => {
-        const startX = node.x;
-        const startY = node.y + CARD_HEIGHT;
-        const endX = child.x;
-        const endY = child.y;
+        // Horizontal connections: right side of parent to left side of child
+        const startX = node.x + CARD_WIDTH / 2; // Right side of parent card
+        const startY = node.y + CARD_HEIGHT / 2; // Center of parent card
+        const endX = child.x - CARD_WIDTH / 2; // Left side of child card
+        const endY = child.y + CARD_HEIGHT / 2; // Center of child card
 
-        const controlPoint1Y = startY + 30;
-        const controlPoint2Y = endY - 30;
+        const controlPoint1X = startX + 50; // Horizontal curve control point
+        const controlPoint2X = endX - 50; // Horizontal curve control point
 
-        // Create smooth curved path
+        // Create smooth curved path for horizontal connections
         const pathData = `M ${startX} ${startY} 
-                         C ${startX} ${controlPoint1Y}, 
-                           ${endX} ${controlPoint2Y}, 
+                         C ${controlPoint1X} ${startY}, 
+                           ${controlPoint2X} ${endY}, 
                            ${endX} ${endY}`;
 
         connections.push(
